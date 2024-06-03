@@ -52,7 +52,7 @@ class decoder2d(nn.Module):
 
 
 class CAE(nn.Module):
-    def __init__(self, encoder_class: encoder2d, decoder_class: decoder2d, num_hidden=10):
+    def __init__(self, encoder_class: encoder2d, decoder_class: decoder2d, num_hidden=20):
         super().__init__()
         self.num_hidden = num_hidden
         self.encoder = encoder_class
@@ -67,8 +67,8 @@ class CAE(nn.Module):
 
 
 class VAE(CAE):
-    def __init__(self, encoder, decoder):
-        super().__init__(encoder_class= encoder, decoder_class=decoder)
+    def __init__(self, encoder, decoder, num_hidden=20):
+        super().__init__(encoder_class= encoder, decoder_class=decoder, num_hidden=num_hidden)
 
         self.mu = nn.Linear(self.num_hidden, self.num_hidden) #transform the encoded data into the mean of the latent space
         self.logvar = nn.Linear(self.num_hidden, self.num_hidden)  #transform the encoded data into the log variance of the latent space
