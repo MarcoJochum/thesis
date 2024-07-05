@@ -7,15 +7,12 @@ import torch
   # Added missing import statement
 
 def normalization(a):
-    a = (a) #added this to convert everything to torch
     return (a - a.min(dim = 0).values)/(a.max(dim = 0).values- a.min(dim = 0).values), a.max(dim = 0).values, a.min(dim = 0).values
 
 def normalization_with_inputs(a, amax, amin):
     return (a - amin)/(amax - amin)
 
 def reverse_normalization(a,amax,amin):
-    a = (a) #added this to convert everything to torch
-
     return a*(amax-amin) + amin
 
 def data_processing(df, name):
