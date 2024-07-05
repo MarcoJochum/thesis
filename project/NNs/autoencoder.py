@@ -29,7 +29,7 @@ class CAE(nn.Module):
         encoded = self.encoder(x)
         decoded = self.decoder(encoded)
 
-        return encoded, decoded
+        return  decoded, encoded
     
 
 class VAE(CAE):
@@ -69,7 +69,7 @@ class VAE(CAE):
         
         decoded = self.decoder(z)
 
-        return encoded, decoded, mu, logvar
+        return  decoded, encoded, mu, logvar
     
     def sample(self, num_samples):
         with torch.no_grad():
