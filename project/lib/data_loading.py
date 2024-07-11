@@ -17,6 +17,7 @@ class DataLoading:
         self.n_y = n_y
         self.n_z = n_z
 
+        #self.config_list = makelis
     def load_files(self, file_path):
 
 
@@ -55,7 +56,7 @@ class DataLoading:
 
         for i in range(time.shape[0]):
 
-            grid[i] = data[i+3, 1:].reshape(self.n_x,self.n_y,self.n_z)
+            grid[i] = data[i+3, 1:].reshape(self.n_x,self.n_y,self.n_z)#+3 needed to skip the nan values at the beginning that contain the coordinates
 
         
         return grid, time
@@ -109,20 +110,26 @@ class DataLoading:
 
         Parameters:
 
+            file_name (str): Name of the file to save the data set in. 
+            Default is None, which does not save the data set but returns the data set.
+            
             list_configs (list): List of configuration folders to load. 
             Default is None, which loads all folders in the data folder.
         '''
         grids = []
+        files = []
         counter = 0
         if list_configs:
+            
             for config_folder in list_configs:
                 counter += 1
-                print("Currently loading:", config_folder)
+                print("Currently loading from list:", config_folder)
                 full_path = self.kmc_data + config_folder
                 if os.path.isdir(full_path): ##Only read directories
                     file_path = full_path + "/avg_trj.npy"
                     grid = np.load(file_path)                    
                     grids.append(grid)
+                    files.append(config_folder)
 
             
         else:
@@ -135,8 +142,12 @@ class DataLoading:
                     grid = np.load(file_path) 
                     grid = np.reshape(grid, (grid.shape[0],grid.shape[2],grid.shape[1],grid.shape[3]))               
                     grids.append(grid)
+                    files.append(config_folder)
         data =np.stack(grids)
         print("Data set shape: ", data.shape, "Number of files combined", counter)
+        with open(self.data_root + "2d_sets/" + file_name +"list.txt", "w") as f:
+            for file_name in files:
+                f.write(file_name + "\n")
         if file_name:
             np.save(self.data_root+"2d_sets/"+file_name, data)
         else:
@@ -232,7 +243,7 @@ def saving_encodings(model, data, config_list):
     with open("../../data_kmc/2d_encoded/encoding_model.txt", "w") as f:
         f.write("Model used for encoding: " + model.__class__.__name__ + "\n")
 
-def loading_encodings(folder_name):
+def loading_encodings(folder_name, config_list):
     '''
     Load the encoded data for the different configurations in the data folder.
     This is the training data for the LSTM model.
@@ -244,7 +255,7 @@ def loading_encodings(folder_name):
        
     '''
     encodings = []
-    for config in os.listdir(folder_name):
+    for config in config_list:
         encoding = np.load(folder_name + config)
         encodings.append(encoding)
     encodings = np.stack(encodings)
