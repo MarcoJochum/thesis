@@ -33,7 +33,7 @@ class LSTMs(nn.Module):
         self.lstm = nn.LSTM(latent_dim, hidden_size, num_layers, batch_first=True)
 
 
-        self.fc = nn.Linear(hidden_size, num_classes)
+        self.fc = nn.Linear(hidden_size, latent_dim)
 
 
         ## Initialize the weights
@@ -48,15 +48,22 @@ class LSTMs(nn.Module):
             self.embed = SineActivation(latent_dim,latent_dim,d_model)
         if embed == "cos":
             self.embed = CosineActivation(latent_dim,latent_dim,d_model)
-
+        if embed == None:
+            try: d_model == latent_dim
+            except: print("INFO: NO Embedding! \nThe input dimension should be same as the d_model")
+            self.embed = None
+        
     def forward(self, x):
         if self.embed:
             x = self.embed(x)
+
+        #TODO: Are we resetting the hidden state for each batch? IS this correct?
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
 
         out, _ = self.lstm(x, (h0, c0))
         #For training I think I want all predictions 
         #out = self.fc(out[:, -1, :])
+        out = self.fc(out) #Going from hidden dim to latent dim
         return out        
         
