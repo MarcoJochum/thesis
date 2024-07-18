@@ -71,17 +71,19 @@ def train_cae(train_x, model, criterion, optimizer, train_loader, num_epochs):
 
 
 
-def train_lstm(model, criterion, optimizer, data_loader, num_epochs, x_test, y_test):
-    
+def train_lstm(model, criterion, optimizer, data_loader, num_epochs, x_test, y_test, x_val, y_val,
+                model_name = "lstm_model.pth"):
+    scheduler = lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.9)
+    best_loss = 1e6
     for epoch in range(num_epochs):
         running_loss = 0.0
         model.train()
-        for x, y in data_loader:
-            optimizer.zero_grad()
+        for x,  y in data_loader:
             
-            y_pred = model(x)
+            
+            y_pred = model(x)[:, -1, :]
         
-            loss_train = criterion(y_pred, y)
+            loss_train = criterion(y_pred, y[:, -1, :])
 
             optimizer.zero_grad()
             loss_train.backward()
@@ -91,10 +93,19 @@ def train_lstm(model, criterion, optimizer, data_loader, num_epochs, x_test, y_t
         if epoch % 10 == 0:
             epoch_loss = running_loss / len(data_loader.dataset)
             print('Epoch {}/{} Loss: {:.4f} '.format(epoch+1,num_epochs, epoch_loss, ))
-
             model.eval()
             with torch.no_grad():
                 y_pred = model(x_test)
                 loss_test = criterion(y_pred, y_test)
                 print('Test loss:', loss_test.item())
-    
+
+
+        y_val_pred = model(x_val)
+        val_loss = criterion(y_val_pred, y_val)
+
+        if val_loss < best_loss:
+                print('Model updated:', epoch)
+                print('Validation loss:', val_loss.item())
+                best_loss = val_loss
+                torch.save(model.state_dict(), model_name)
+        scheduler.step()    
