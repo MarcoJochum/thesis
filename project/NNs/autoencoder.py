@@ -69,7 +69,7 @@ class VAE(CAE):
         
         decoded = self.decoder(z)
 
-        return  decoded, encoded, mu, logvar
+        return  decoded, z, mu, logvar
     
     def sample(self, num_samples):
         with torch.no_grad():
