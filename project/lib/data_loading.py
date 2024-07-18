@@ -127,7 +127,8 @@ class DataLoading:
                 full_path = self.kmc_data + config_folder
                 if os.path.isdir(full_path): ##Only read directories
                     file_path = full_path + "/avg_trj.npy"
-                    grid = np.load(file_path)                    
+                    grid = np.load(file_path)
+                    grid = np.reshape(grid, (grid.shape[0],grid.shape[2],grid.shape[1],grid.shape[3]))                     
                     grids.append(grid)
                     files.append(config_folder)
 
@@ -145,13 +146,14 @@ class DataLoading:
                     files.append(config_folder)
         data =np.stack(grids)
         print("Data set shape: ", data.shape, "Number of files combined", counter)
-        with open(self.data_root + "2d_sets/" + file_name +"list.txt", "w") as f:
-            for file_name in files:
-                f.write(file_name + "\n")
+        with open(self.data_root + "2d_sets/" + file_name +"_list.txt", "w") as f:
+            for name in files:
+                f.write(name + "\n")
         if file_name:
             np.save(self.data_root+"2d_sets/"+file_name, data)
+            return torch.tensor(data, dtype=torch.float32)
         else:
-            return data
+            return torch.tensor(data, dtype=torch.float32)
 
         
     def padding(self, grid, pad_value=0):
