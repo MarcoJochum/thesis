@@ -7,7 +7,7 @@ import torch
   # Added missing import statement
 
 def normalization(a):
-    return (a - a.min(dim = 0).values)/(a.max(dim = 0).values- a.min(dim = 0).values), a.max(dim = 0).values, a.min(dim = 0).values
+    return (a - a.min())/(a.max()- a.min()), a.max(), a.min()
 
 def normalization_with_inputs(a, amax, amin):
     return (a - amin)/(amax - amin)
