@@ -161,7 +161,7 @@ class pro_decoder2d(nn.Module):
         self.activation = activation
         self.linear = nn.Sequential(
             nn.Linear(latent_dim, 256),
-            nn.ELU(),
+            self.activation,
             nn.Linear(256, 8*c_hid*7*4)
         )
 
@@ -176,7 +176,7 @@ class pro_decoder2d(nn.Module):
 
             nn.ConvTranspose2d(8*c_hid, 4*c_hid, kernel_size=3, stride=2, padding=1, output_padding=1), #4x7 to 8x14
             nn.ConstantPad2d((0, -1, 0, -1), 0),#7x13
-            # self.activation,
+            self.activation,
 
             nn.ConvTranspose2d(4*c_hid, 2*c_hid, kernel_size=3, stride=2, padding=1, output_padding=1),#7x13 to 14x26
             nn.ConstantPad2d((0, -1, 0, -1), 0),#13x25 
