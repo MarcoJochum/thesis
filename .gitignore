@@ -16,3 +16,4 @@ logs
 models
 *.pth
 *.png
+runs
