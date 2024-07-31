@@ -33,7 +33,7 @@ class CAE(nn.Module):
     
 
 class VAE(CAE):
-    def __init__(self, encoder, decoder, latent_dim=20):
+    def __init__(self, encoder, decoder, latent_dim=20, mode='train'):
         super().__init__(encoder_class= encoder, decoder_class=decoder, latent_dim=latent_dim)
 
         ''' 
@@ -48,7 +48,7 @@ class VAE(CAE):
             latent_dim (int): The dimensionality of the latent space.
 
         '''
-
+        self.mode = mode
         self.mu = nn.Linear(self.latent_dim, self.latent_dim) #transform the encoded data into the mean of the latent space
         self.logvar = nn.Linear(self.latent_dim, self.latent_dim)  #transform the encoded data into the log variance of the latent space
 
@@ -58,7 +58,7 @@ class VAE(CAE):
 
         return mu + eps*std
     
-    def forward(self,x):
+    def forward(self,x, params=None):
 
         encoded = self.encoder(x)
         mu = self.mu(encoded)
@@ -66,9 +66,11 @@ class VAE(CAE):
         logvar = self.logvar(encoded)
 
         z = self.reparametrize(mu, logvar)
-        
+        ##Do this before decoding
+        if not self.mode == 'train':
+            z[:,:3] = params
         decoded = self.decoder(z)
-
+        
         return  decoded, z, mu, logvar
     
     def sample(self, num_samples):
