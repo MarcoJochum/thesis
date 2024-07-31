@@ -13,88 +13,122 @@ lookback = 64
 ###
 n_epochs = 50
 batch_size = 200
-latent_dim = 40
-base = 32
-part_class = 1  
+latent_dim = 50
+base = 8
+part_class = 1 
+
+## Configuration to visualize
+n_config = 10
+
+
 encoder = pro_encoder2d(part_class,base, latent_dim)
 decoder = pro_decoder2d(part_class,base, latent_dim)
-vae = VAE(encoder, decoder, latent_dim=latent_dim)
+vae = VAE(encoder, decoder, latent_dim=latent_dim, mode='eval')
  
-vae.load_state_dict(torch.load('model_vae_kmc_red_data_e1000.pth', map_location=torch.device('cpu')))
+vae.load_state_dict(torch.load('model_vae_p.pth', map_location=torch.device("cpu")))
 vae.eval()
 
 
-model = LSTMs(latent_dim, d_model=latent_dim, hidden_size=80, num_layers=2, num_classes=1, embed=None)
-model.load_state_dict(torch.load('model_lstm.pth',map_location=torch.device('cpu')))
-model.eval()
-data_folder = '../../data_kmc/2d_encoded/' 
-encodings = loading_encodings(data_folder)
-data = torch.tensor(np.load('../../data_kmc/2d_sets/2d_red_5.npy'), dtype=torch.float32)
 
-holdout = encodings[-5]
-encodings = encodings[:-5]
-train_size = int(encodings.shape[1] * 0.67)    
-test_size = encodings.shape[1] - train_size
-train, test = encodings[:,0:train_size], encodings[:,train_size:]
-x_train, y_train = make_sequence(train, 64, 10)
-x_test, y_test = make_sequence(test, 64, 10)
-timeseries = np.zeros((n_time, n_x, n_z))
-print(x_train[1].shape)
-x_test = torch.tensor(x_test, dtype=torch.float32)
-y_test = torch.tensor(y_test, dtype=torch.float32)
-x_train = torch.tensor(x_train, dtype=torch.float32)
-y_train = torch.tensor(y_train, dtype=torch.float32)
+lstm = LSTMs(latent_dim, d_model=latent_dim, n_mode=1, hidden_size=50, num_layers=1, num_classes=1, embed=None)
+lstm.load_state_dict(torch.load('model_lstm_p24.pth',map_location=torch.device('cpu')))
+lstm.eval()
+
+
+##Load data
+
+x_train = torch.tensor(np.load('../../data_kmc/2d_sets/train_set_80_20.npy'), dtype=torch.float32)
+x_test = torch.tensor(np.load('../../data_kmc/2d_sets/test_set_80_20.npy'), dtype=torch.float32)
+
+test_params = get_config("../../data_kmc/2d_sets/test_set_80_20_list.txt")
+train_params = get_config("../../data_kmc/2d_sets/train_set_80_20_list.txt")##epsr, cbulk, v_bias
+
+##Rescale parameters with the mean
+params_scale = torch.mean(train_params, dim=0)
+train_params = train_params/params_scale
+train_params_non_stack = train_params
+
+test_params = test_params/params_scale
+test_params_non_stack = test_params
+test_params = torch.repeat_interleave(test_params, 1000, dim=0)
+train_params = torch.repeat_interleave(train_params, 1000, dim=0)
+
+train_params = torch.reshape(train_params, (x_train.shape[0],x_train.shape[1], train_params.shape[-1] ) )
+test_params = torch.reshape(test_params, (x_test.shape[0],x_test.shape[1], test_params.shape[-1] ) )
+
+x_train = x_train/torch.mean(x_train)   
+x_test = x_test/torch.mean(x_train)
+
+list_x_train = []
+list_x_test = []  
+
+## add params to encoding
+with torch.no_grad():
+    for i in range(len(x_train)):
+        x = x_train[i]  # Add batch dimension
+        params = train_params[i]  # Add batch dimension
+        _, x_lat, _, _ = vae(x, params)
+        list_x_train.append(x_lat)
+    for i in range(len(x_test)): 
+        y = x_test[i]  # Add batch dimension
+        params = test_params[i]  # Add batch dimension
+        _, y_lat, _, _ = vae(y, params)
+        list_x_test.append(y_lat)
+
+x_train_lat =torch.stack(list_x_train)
+x_test_lat = torch.stack(list_x_test)
+##Make sequences
+test_trj = x_train[n_config]
+test_trj_lat = x_train_lat[n_config]
+
+##Prediction horizon
+t = 100
+##Lookback  
+lookback = 1
+y_pred_lat = torch.zeros((t+lookback+1,latent_dim))
+y_pred_lat[:lookback] = test_trj_lat[:lookback]
+#time = torch.logspace(-8, -4, 1000)   
+#print("Time shape:", time.shape)     
+h= torch.zeros(1, 1, 50)
+c = torch.zeros(1, 1, 50)
+
+for i in range(lookback,t+lookback):
+    out  = lstm(y_pred_lat[i-lookback:i].unsqueeze(0), mode = "train")
+    y_pred_lat[i+1] = out[:,-1,:]
+    #Enforce parameters on first 3 elements
+    y_pred_lat[i+1,:3] = train_params_non_stack[n_config] #test_params_non_stack[n_config]
+    
+
+
+y_pred = vae.decoder(y_pred_lat)
+
+
+##Average across x dim
+test_trj = torch.mean(test_trj, dim=2).squeeze()
+y_pred = torch.mean(y_pred, dim=2).squeeze()
+print("y_pred shape:", y_pred.shape)
+print("test_plot shape:", test_trj.shape)
+
 time = np.logspace(-8, -4, 1000, 'o')
 labels = [] 
 with torch.no_grad():
-    
-    train_plot = np.ones_like(timeseries)*np.nan
-    y_pred_encode = model(x_train[1])[:,-1,:]
-    y_pred_encode = y_pred_encode.unsqueeze(1)
-    print("y_pred_encode shape:",y_pred_encode.shape)
-    y_pred = vae.decoder(y_pred_encode)
-    print("Decoded y pred shape:", y_pred.shape)
-    train_plot[lookback:train_size] = y_pred.squeeze().numpy()
-    train_plot = np.mean(train_plot, axis=1)
-    print("train plot shape:", train_plot.shape)
-    test_plot = np.ones_like(timeseries)*np.nan
-    y_test_encode = model(x_test[1])[:,-1,:]
-    y_test_encode = y_test_encode.unsqueeze(1)
-    print("y_test_encode shape:",y_test_encode.shape)
-    
-    y_test = vae.decoder(y_test_encode)
-    print("y test decode shape:", y_test.shape)
-    test_plot[train_size+lookback:] = y_test.squeeze().numpy()
-    test_plot = np.mean(test_plot, axis=1)
-    print("Y test values", y_test.mean())
-    t_end = 1000
-    t_space = 100
-    t_start = 600
-    num_plots=3
-    fig,axs = plt.subplots(1,num_plots, figsize=(15,5))
-    
-    y_true = torch.mean(data[1], dim=1)
-    print("y_true shape:", y_true.shape)
-
-    for i in range(t_start, t_end,t_space):
+      
+    fig,axs = plt.subplots(1,2, figsize=(15,5))
+    for i in range(0, 10,1):
         
-        axs[0].plot(np.linspace(0,100,100), train_plot[i, :])
-        labels.append([f"t = {time[i-1]}"])
-        #axs[0].set_ylim(0, 5) 
-        axs[0].set_title("Train")
-        axs[0].legend(labels)
+        
+        axs[0].plot(np.linspace(0,100,100), y_pred[i].detach().numpy())
+        labels.append([f"t = {time[i]}"])
+        axs[0].set_ylim(0, 5)
+        axs[0].set_title("Prediction")
+        #axs[0].legend(labels)
 
-        axs[1].plot(np.linspace(0,100,100), test_plot[i, :], linestyle="-.")
-        labels.append([f"t = {time[i-1]}"])
-        #axs[1].set_ylim(0, 5)
-        axs[1].set_title("Test")
-        axs[1].legend(labels)
-
-        axs[2].plot(np.linspace(0,100,100), y_true[i, 0,:].detach().numpy())
-        labels.append([f"t = {time[i-1]}"])
-        #axs[1].set_ylim(0, 5)
-        axs[2].set_title("Ground truth")
-        axs[2].legend(labels)
+        axs[1].plot(np.linspace(0,100,100), test_trj[i].detach().numpy())
+        #labels.append([f"t = {time[i-1]}"])
+        axs[1].set_ylim(0, 5)
+        axs[1].set_title("Ground truth")
+        #axs[1].legend(labels)
 
  
-    plt.savefig("lstm_compare.png")
+plt.savefig("lstm_0_10_train_"+str(n_config)+".png")
+print("Number of parameters in lstm:",sum(p.numel() for p in lstm.parameters() if p.requires_grad))
