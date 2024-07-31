@@ -12,8 +12,12 @@ lib/__pycache__
 
 logs
 *.log
-##
+##Model folder
 models
 *.pth
+
+#Plots
 *.png
+#Tensorboard logs
 runs
+thesis/project/lib/__pycache__/
