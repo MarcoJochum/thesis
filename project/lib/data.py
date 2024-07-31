@@ -21,6 +21,7 @@ def make_sequence(data, seq_len, next_step):
 
     if len(data.shape) <=2:
         data    = np.expand_dims(data, axis=0)
+    data = torch.tensor(data)
     nConfigs    = data.shape[0]
     nSamples    = (data.shape[1]-seq_len)
     X           = np.empty([nConfigs,nSamples, seq_len, data.shape[-1]])
@@ -32,11 +33,11 @@ def make_sequence(data, seq_len, next_step):
     for i in tqdm(np.arange(data.shape[0])):
         k = 0
         for j in np.arange(data.shape[1]-seq_len- next_step):
-                X[i,k] = data[0,j        :j+seq_len]
+                X[i,k] = data[0,j        :j+seq_len].detach().numpy()   
                 #TODO: Similarly to above this would also need to be adapted
-                Y[i,k] = data[0, j+next_step :j+seq_len+next_step]
+                Y[i,k] = data[0, j+next_step :j+seq_len+next_step].detach().numpy()
                 k    = k + 1
     
     print(f"The training data has been generated, has shape of {X.shape, Y.shape}")
 
-    return X, Y
+    return torch.tensor(X, dtype=torch.float32), torch.tensor(Y, dtype=torch.float32)
