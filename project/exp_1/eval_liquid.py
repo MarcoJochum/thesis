@@ -4,6 +4,16 @@ from NNs.RNN import *
 from lib.data import *
 import torch
 import matplotlib.pyplot as plt 
+import random 
+# def set_seed(seed):
+#     random.seed(seed)
+#     np.random.seed(seed)
+#     torch.manual_seed(seed)
+#     if torch.cuda.is_available():
+#         torch.cuda.manual_seed(seed)
+#         torch.cuda.manual_seed_all(seed)
+# set_seed(42)
+
 n_prod = 50
 n_x = 50
 n_y = 1
@@ -27,12 +37,12 @@ encoder = pro_encoder2d(part_class,base, latent_dim)
 decoder = pro_decoder2d(part_class,base, latent_dim)
 VAE = VAE(encoder, decoder, latent_dim=latent_dim)
  
-VAE.load_state_dict(torch.load('model_vae_500.pth', map_location=torch.device("cpu")))
+VAE.load_state_dict(torch.load('model_vae_500_act.pth', map_location=torch.device("cpu")))
 VAE.eval()
 
 
 
-lnn = torch.load("model_liq.pth", map_location=torch.device("cpu"))
+lnn = torch.load("model_liq_default_1.pth", map_location=torch.device("cpu"))
 lnn.eval()
 ##Load data
 
@@ -43,67 +53,83 @@ list_x_train = []
 list_x_test = []  
 with torch.no_grad():
     for x in x_train:
-        _, x_lat, _, _ = VAE(x)
+        _, _, x_lat, _ = VAE(x)
         list_x_train.append(x_lat)
     for y in x_test: 
-        _, y_lat, _ ,_ = VAE(y)
+        _, _, y_lat ,_ = VAE(y)
         list_x_test.append(y_lat)
 x_train_lat =torch.stack(list_x_train)
 x_test_lat = torch.stack(list_x_test)
 
 ##Make sequences
-test_trj =torch.tensor(np.load("../../data_kmc/1400_1e+20_2.0/avg_trj.npy"), dtype=torch.float32)   #x_train[50]
-test_trj = torch.reshape(test_trj, (1000,1,50,100))
+#test_trj =torch.tensor(np.load("../../data_kmc/1400_1e+20_2.0/avg_trj.npy"), dtype=torch.float32)   #x_train[50]
+#test_trj = torch.reshape(test_trj, (1000,1,50,100))
 
-with torch.no_grad():
-    _,test_trj_lat,_,_ = VAE(test_trj)
-
+# with torch.no_grad():
+#     _,test_trj_lat,_,_ = VAE(test_trj)
+test_trj = x_train[::10]
+test_trj_lat = x_train_lat[::10]
 ##Prediction horizon
 t = 1000
 ##Lookback  
 
-y_pred_lat = torch.zeros((t,latent_dim))
-#hx = test_trj_lat[0]
-#time = torch.logspace(-8, -4, 1000)   
-#print("Time shape:", time.shape)     
-hx = torch.zeros((25))
+y_pred_lat = torch.zeros((6,t,latent_dim))
+time = torch.logspace(-8, -4, 1000)
 
-for i in range(0,t-1):
-    print("test_trj_lat shape:", test_trj_lat[i].shape)
-   
-    y_pred_lat[i], hx = lnn(test_trj_lat[i].unsqueeze(0), hx)
-    print("hx shape:", hx.shape)
-
+hx = torch.zeros((60))
+  
+y_pred_lat[:,200] = test_trj_lat[:,200]
+y_pred = torch.zeros((6,t,50,100))
 with torch.no_grad():
-    y_pred = VAE.decoder(y_pred_lat)
+   for j in range(6): 
+    for i in range(200,t-1):
+        if i<201 :
+        
+            y_pred_lat[j,i+1], hx = lnn(test_trj_lat[j,i].unsqueeze(0), hx , timespans=time[i].unsqueeze(0))
+            
+        else:
+            y_pred_lat[j,i+1], hx = lnn(y_pred_lat[j,i].unsqueeze(0), hx, timespans=time[i].unsqueeze(0))
+    
+
+    test = VAE.decoder(y_pred_lat[j])
+    print(test.shape)
+    y_pred[j] = torch.reshape(test, (t,50,100))
+        
+
+##1000x50 shape for decoder
+#y_pred = VAE.decoder(y_pred_lat)
+    
 
 
 ##Average across x dim
-test_trj = torch.mean(test_trj, dim=2).squeeze()
+  
+test_trj = torch.mean(test_trj.squeeze(), dim=2).squeeze()
 y_pred = torch.mean(y_pred, dim=2).squeeze()
-print("y_pred shape:", y_pred.shape)
-print("test_plot shape:", test_trj.shape)
-
+with open("../../data_kmc/2d_sets/train_set_80_20_list.txt", "r") as f:
+    names= f.readlines()
+names = [line.strip() for line in names]
 time = np.logspace(-8, -4, 1000, 'o')
 labels = [] 
 with torch.no_grad():
       
-    fig,axs = plt.subplots(1,2, figsize=(15,5))
-    for i in range(0, 700,100):
+    fig,axs = plt.subplots(6,2, figsize=(6,20))
+    for j in range(6):
+        for i in range(200, 999,100):
+            
         
-        
-        axs[0].plot(np.linspace(0,100,100), y_pred[i].detach().numpy())
-        labels.append([f"t = {time[i-1]}"])
-        axs[0].set_ylim(0, 5)
-        axs[0].set_title("Prediction")
-        #axs[0].legend(labels)
+            
+            axs[j,0].plot(np.linspace(0,100,100), y_pred[j, i].detach().numpy())
+            labels.append([f"t = {time[i]}"])
+            axs[j,0].set_ylim(0, 5)
+            axs[j,0].set_title("Prediction"+ names[j])
+            #axs[0].legend(labels)
 
-        axs[1].plot(np.linspace(0,100,100), test_trj[i].detach().numpy())
-        #labels.append([f"t = {time[i-1]}"])
-        axs[1].set_ylim(0, 5)
-        axs[1].set_title("Ground truth")
-        #axs[1].legend(labels)
+            axs[j,1].plot(np.linspace(0,100,100), test_trj[j,i].detach().numpy())
+            #labels.append([f"t = {time[i-1]}"])
+            axs[j,1].set_ylim(0, 5)
+            axs[j,1].set_title("Ground truth"+ names[j])
+            #axs[1].legend(labels)
 
  
-plt.savefig("liquid_compare_test_1e20.png")
+plt.savefig("liq_defaul1_train_10.png")
 print("Number of parameters in LNN:",sum(p.numel() for p in lnn.parameters() if p.requires_grad))
