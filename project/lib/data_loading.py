@@ -262,3 +262,28 @@ def loading_encodings(folder_name, config_list):
         encodings.append(encoding)
     encodings = np.stack(encodings)
     return encodings
+
+def get_config(config_file_name):
+    '''
+    Load the configuration file and return the configuration dictionary.
+
+    Parameters:
+
+        config_file_name (str): Name of the configuration file to load.
+    '''
+    lines_array = []
+
+    # Open the file and read the lines
+    with open(config_file_name, 'r') as file:
+        lines_array = [line.strip() for line in file.readlines()]
+    # Now lines_array contains each line of the file as an element
+    split_lines = []
+    # Iterate over each line in the array
+    for line in lines_array:
+        # Split the line by underscore and add the resulting list to split_lines
+        split_lines.append(line.split("_"))
+    # Now split_lines contains each line of the file split into parts
+    
+    lines_array= np.array(split_lines)
+    lines_array = lines_array.astype(np.float32)
+    return torch.tensor(lines_array)
