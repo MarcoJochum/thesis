@@ -8,6 +8,8 @@ from lib.data import *
 import copy
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import random 
+from lib.data import *
+from config.liquid import Liquid_config
 def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
@@ -16,28 +18,43 @@ def set_seed(seed):
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
 set_seed(42)
-
-n_epochs = 500
-batch_size = 2000
-latent_dim = 50
-base = 8
-part_class = 1
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+n_epochs = Liquid_config.n_epochs
+lr = Liquid_config.lr
+batch_size = Liquid_config.batch_size
+latent_dim = Liquid_config.latent_dim
+base = Liquid_config.base
+part_class = Liquid_config.part_class
+
+units = Liquid_config.units
+proj_size = Liquid_config.proj_size
+backbone_layers = Liquid_config.backbone_layers
+backbone_units = Liquid_config.backbone_units
+backbone_dropout = Liquid_config.backbone_dropout
+
+model_name = Liquid_config.model_name
+vae_name = "models/model_vae_lin.pth"
+
 ##Initialize VAE for encodings
 encoder = pro_encoder2d(part_class,base, latent_dim)
 decoder = pro_decoder2d(part_class,base, latent_dim)
 
 vae = VAE(encoder, decoder, latent_dim=latent_dim)
-vae.load_state_dict(torch.load('model_vae_500_act.pth', map_location=torch.device(device)))
+vae.load_state_dict(torch.load(vae_name, map_location=torch.device(device)))
 vae.eval()
+
 ## LOad trainig data
-x_train = torch.tensor(np.load('../../data_kmc/2d_sets/train_set_80_20.npy'), dtype=torch.float32)
-x_test = torch.tensor(np.load('../../data_kmc/2d_sets/test_set_80_20.npy'), dtype=torch.float32)
-x_train = x_train[:,200:]   
-x_test = x_test[:,200:]
+x_train = Liquid_config.data_train
+x_test = Liquid_config.data_test
+x_train = x_train/torch.mean(x_train)
+x_test = x_test/torch.mean(x_train)
+x_train = x_train[:,:50]   
+x_test = x_test[:,:50]
 list_x_train = []
 list_x_test = []  
-
+print("x_train shape:", x_train.shape)
 ##Here i use the pretrained AE to encode the data from 51x1000x50x100 to 51x1000x25
 with torch.no_grad():
     for x in x_train:
@@ -48,46 +65,58 @@ with torch.no_grad():
         list_x_test.append(y_lat)
 x_train_lat =torch.stack(list_x_train)
 x_test_lat = torch.stack(list_x_test)
-time = torch.logspace(-8, -4, 1000).unsqueeze(0)
+#time = torch.logspace(-8, -4, 1000).unsqueeze(0)
+time = torch.linspace(1e-07,1e-04,1000).unsqueeze(0)
 #time = time/torch.mean(time)
+vae.to(device)
 
 
 #time = torch.stack([time[200:] for i in range(51)])
 
-in_features = latent_dim
+
 ##I just choose this like they did in the tutorial so if this is not the optimal setting i can change it
-wiring = AutoNCP(in_features+10, in_features )
-model =  ncps.CfC(in_features,units=60,proj_size=in_features, mode="default", batch_first=True, backbone_layers=3, backbone_units=60, backbone_dropout=0.2) #
+wiring = AutoNCP(latent_dim+10, latent_dim )
+model =  ncps.CfC(latent_dim,units=units,proj_size=proj_size, mode="default", batch_first=True,
+                   backbone_layers=backbone_layers, backbone_units=backbone_units) 
 #unit size is the dimension of the hidden state
 model.to(device)
 print("Number of parameters in LNN:",sum(p.numel() for p in model.parameters() if p.requires_grad))
-##data dim: 51x1000x10
-#take whole trajectory
-# y is just one step ahead
-#999 training points
-#just predict the next one from the current one
-#x_train_lat = torch.reshape(x_train_lat, (x_train_lat.shape[0]*x_train_lat.shape[1],
-                                #x_train_lat.shape[2]))
-#x_train_liq = torch.zeros((51,999,latent_dim))
-#y_train_liq = torch.zeros((51,999,latent_dim))
-y_train_liq = x_train_lat[:,1:] ##Dim 51x999x10
-x_train_liq = x_train_lat[:,:-1] ##Dim 51x999x10
+n_params= sum(p.numel() for p in model.parameters() if p.requires_grad)
 
+
+
+x_train_liq, y_train_liq = make_sequence(x_train_lat, 20,1)
+_, y_train_liq = make_sequence(x_train.squeeze(), 20,1)
+
+print("y_train_liq shape:", y_train_liq.shape)
+x_train_liq = torch.reshape(x_train_liq, (x_train_liq.shape[0]*x_train_liq.shape[1],x_train_liq.shape[2], x_train_liq.shape[3]))
+y_train_liq = torch.reshape(y_train_liq, (y_train_liq.shape[0]*y_train_liq.shape[1],y_train_liq.shape[2], y_train_liq.shape[3], y_train_liq.shape[4]))
 #test data
-y_test_liq = x_test_lat[:,1:] ##Dim 51x999x10
-x_test_liq = x_test_lat[:,:-1] ##Dim 51x999x10
+x_test_liq, y_test_liq = make_sequence(x_test_lat, 10,1)
+# x_train_liq = x_train_lat[:,:-1]
+# y_train_liq = x_train_lat[:,1:]
+# x_test_liq = x_test_lat[:,:-1]
+# y_test_liq = x_test_lat[:,1:]
+x_test_liq = torch.reshape(x_test_liq, (x_test_liq.shape[0]*x_test_liq.shape[1],x_test_liq.shape[2], x_test_liq.shape[3]))
+y_test_liq = torch.reshape(y_test_liq, (y_test_liq.shape[0]*y_test_liq.shape[1],y_test_liq.shape[2], y_test_liq.shape[3]))
+print("x_train_liq shape:", x_train_liq.shape)  
 ## This way i predict from the current time step to  the next 
 ## At least that is my intention
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-train_data = torch.utils.data.TensorDataset(x_train_liq[:-10], y_train_liq[:-10])
-val_data = torch.utils.data.TensorDataset(x_train_liq[-10:], y_test_liq[-10:])
+optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
+train_data = torch.utils.data.TensorDataset(x_train_liq[:-100], y_train_liq[:-100])
+val_data = torch.utils.data.TensorDataset(x_train_liq[-100:], y_train_liq[-100:])
 test_data = torch.utils.data.TensorDataset(x_test_liq, y_test_liq)
-test_loader = torch.utils.data.DataLoader(test_data, batch_size=5, shuffle=False)  
-train_loader = torch.utils.data.DataLoader(train_data, batch_size=5, shuffle=False)
-val_loader = torch.utils.data.DataLoader(val_data, batch_size=5, shuffle=False)
+test_loader = torch.utils.data.DataLoader(test_data, batch_size=x_test_liq.shape[0], shuffle=False)  
+train_loader = torch.utils.data.DataLoader(train_data, batch_size=Liquid_config.batch_size, shuffle=True)
+val_loader = torch.utils.data.DataLoader(val_data, batch_size=x_train_liq[-100:].shape[0], shuffle=True)
+
+
 best_loss = 1e8
 criterion = torch.nn.MSELoss(reduction="mean")
-scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.8, patience=10, verbose=True)
+scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.95, patience=20, verbose=True)
+gradient_mean = torch.zeros(n_epochs).to(device)
+gradient_std = torch.zeros(n_epochs).to(device)
 for i in range(n_epochs):
     model.train()
     total_loss = 0
@@ -97,28 +126,44 @@ for i in range(n_epochs):
         x = x.to(device)
         y = y.to(device)
         optimizer.zero_grad()
-        print("x shape", x.shape)
         
-        y_pred,hx = model(x, timespans=time)
-        print("hx shape", hx.shape)
+        
+        y_pred_lat,hx = model(x)
+        
+        y_pred_lat = torch.reshape(y_pred_lat, (y_pred_lat.shape[0]* y_pred_lat.shape[1],latent_dim))
+        y_pred = vae.decoder(y_pred_lat)
+        y_pred = torch.reshape(y_pred, (y.shape[0], y.shape[1],  50, 100))
+        
         loss = criterion(y, y_pred)
         loss.backward()
         optimizer.step()
         total_loss += loss.item()/len(train_loader)
+    for name, param in model.named_parameters():
+        
+        gradient_mean[i] +=torch.mean(torch.abs(torch.flatten(param.grad)))
+        gradient_std[i] += torch.mean(torch.std(torch.flatten(param.grad)))
+
+    print("Gradient mean:", gradient_mean[i])   
+    print("Gradient std:", gradient_std[i])
 
     val_loss = 0
     for x_val, y_val in val_loader:
                 x_val = x_val.to(device)
                 y_val = y_val.to(device)
-                y_val_pred,_ = model(x_val, timespans=time)
+                y_val_pred_lat,_ = model(x_val)
+                y_val_pred_lat = torch.reshape(y_val_pred_lat, (y_val_pred_lat.shape[0]* y_val_pred_lat.shape[1],latent_dim))
+                y_val_pred = vae.decoder(y_val_pred_lat)
+                y_val_pred = torch.reshape(y_val_pred, (y_val.shape[0], y_val.shape[1],  50, 100))
+
+
                 val_loss += criterion(y_val_pred, y_val)
-                print('Validation loss:', val_loss.item()/len(val_loader))
-                if val_loss.item()/len(val_loader) < best_loss:
-                    print('Model updated:', i)
+    print('Validation loss:', val_loss.item()/len(val_loader))
+    if val_loss.item()/len(val_loader) < best_loss:
+        print('Model updated:', i)
                     
-                    best_loss = val_loss.item()/len(val_loader)
-                    best_model=copy.deepcopy(model)
-                    torch.save(best_model, 'model_liq_default_1.pth')
+        best_loss = val_loss.item()/len(val_loader)
+        best_model=copy.deepcopy(model)
+        torch.save(best_model, model_name)
 
     scheduler.step(val_loss.item()/len(val_loader))
                     
@@ -132,5 +177,4 @@ for x_test_liq, y_test_liq in test_loader:
         loss_test = criterion(y_test_liq, y_test_pred)
         total_loss_test += loss_test.item()/len(test_loader)   
 print(f"Test Loss: {total_loss_test}")
-
-torch.save(best_model, 'model_liq_default_1.pth')
+torch.save(model, "final_model.pth")    
