@@ -5,6 +5,7 @@ from lib.data import *
 import torch
 import matplotlib.pyplot as plt 
 import random 
+from config.liquid import Liquid_config
 # def set_seed(seed):
 #     random.seed(seed)
 #     np.random.seed(seed)
@@ -14,20 +15,18 @@ import random
 #         torch.cuda.manual_seed_all(seed)
 # set_seed(42)
 
-n_prod = 50
-n_x = 50
-n_y = 1
-n_z= 100
-n_time = 1000
-lookback = 64
+
+
+
 ###
 n_epochs = 50
-batch_size = 200
-latent_dim = 50
-base = 8
-part_class = 1  
-data_folder = '../../data_kmc/'
-suffix = "local_density_li+.txt"
+batch_size = Liquid_config.batch_size
+latent_dim = Liquid_config.latent_dim
+base = Liquid_config.base
+part_class = Liquid_config.part_class
+vae_name = "models/model_vae_lin.pth"
+
+model_name = "model_liq_loss.pth"#Liquid_config.model_name
 #data = DataLoading(data_folder, n_prod, n_time, n_x, n_y, n_z, suffix)
 #data.kmc_data='../../data_kmc/'
 #data.avg_trj("1400_1e+20_2.0")
@@ -37,17 +36,18 @@ encoder = pro_encoder2d(part_class,base, latent_dim)
 decoder = pro_decoder2d(part_class,base, latent_dim)
 VAE = VAE(encoder, decoder, latent_dim=latent_dim)
  
-VAE.load_state_dict(torch.load('model_vae_500_act.pth', map_location=torch.device("cpu")))
+VAE.load_state_dict(torch.load(vae_name, map_location=torch.device("cpu")))
 VAE.eval()
 
 
-
-lnn = torch.load("model_liq_default_1.pth", map_location=torch.device("cpu"))
+lnn = torch.load(model_name, map_location=torch.device("cpu"))
 lnn.eval()
 ##Load data
 
-x_train = torch.tensor(np.load('../../data_kmc/2d_sets/train_set_80_20.npy'), dtype=torch.float32)
-x_test = torch.tensor(np.load('../../data_kmc/2d_sets/test_set_80_20.npy'), dtype=torch.float32)
+x_train = Liquid_config.data_train
+x_test = Liquid_config.data_test
+x_train = x_train/torch.mean(x_train)
+x_test = x_test/torch.mean(x_train)
 
 list_x_train = []
 list_x_test = []  
@@ -67,29 +67,33 @@ x_test_lat = torch.stack(list_x_test)
 
 # with torch.no_grad():
 #     _,test_trj_lat,_,_ = VAE(test_trj)
-test_trj = x_train[::10]
-test_trj_lat = x_train_lat[::10]
+test_trj = x_train[:8]
+test_trj_lat = x_train_lat[:8]
+with open("../../data_kmc/2d_sets/train_set_lin_80_20_list.txt", "r") as f:
+    names= f.readlines()
+names = [line.strip() for line in names]
+names = names[:8]   
 ##Prediction horizon
 t = 1000
 ##Lookback  
 
-y_pred_lat = torch.zeros((6,t,latent_dim))
+y_pred_lat = torch.zeros((8,t,latent_dim))
 time = torch.logspace(-8, -4, 1000)
 
-hx = torch.zeros((60))
+hx = torch.zeros((Liquid_config.units))
   
-y_pred_lat[:,200] = test_trj_lat[:,200]
-y_pred = torch.zeros((6,t,50,100))
+y_pred_lat[:,0] = test_trj_lat[:,0]
+y_pred = torch.zeros((8,t,50,100))
 with torch.no_grad():
    for j in range(6): 
-    for i in range(200,t-1):
-        if i<201 :
+    for i in range(0,t-1):
+        if i<10 :
         
-            y_pred_lat[j,i+1], hx = lnn(test_trj_lat[j,i].unsqueeze(0), hx , timespans=time[i].unsqueeze(0))
+            y_pred_lat[j,i+1] , hx = lnn(test_trj_lat[j,i].unsqueeze(0), hx , timespans=time[i].unsqueeze(0))
             
         else:
             y_pred_lat[j,i+1], hx = lnn(y_pred_lat[j,i].unsqueeze(0), hx, timespans=time[i].unsqueeze(0))
-    
+             
 
     test = VAE.decoder(y_pred_lat[j])
     print(test.shape)
@@ -105,16 +109,14 @@ with torch.no_grad():
   
 test_trj = torch.mean(test_trj.squeeze(), dim=2).squeeze()
 y_pred = torch.mean(y_pred, dim=2).squeeze()
-with open("../../data_kmc/2d_sets/train_set_80_20_list.txt", "r") as f:
-    names= f.readlines()
-names = [line.strip() for line in names]
+
 time = np.logspace(-8, -4, 1000, 'o')
 labels = [] 
 with torch.no_grad():
       
     fig,axs = plt.subplots(6,2, figsize=(6,20))
     for j in range(6):
-        for i in range(200, 999,100):
+        for i in range(0, 100,10):
             
         
             
@@ -131,5 +133,5 @@ with torch.no_grad():
             #axs[1].legend(labels)
 
  
-plt.savefig("liq_defaul1_train_10.png")
+plt.savefig("liq_loss_realspace_train_0_8.png")
 print("Number of parameters in LNN:",sum(p.numel() for p in lnn.parameters() if p.requires_grad))
