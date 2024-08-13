@@ -38,8 +38,13 @@ class DataLoading:
         '''
         with warnings.catch_warnings():#Ignore dtype warning because of Nan at beginning of file
             warnings.simplefilter("ignore")
-            data = pd.read_csv(file_path, sep="\s+", header=None)
-
+            data = pd.read_csv(file_path, sep="\s+", header=None, on_bad_lines="skip")
+            # try:
+            #     data = pd.read_csv(file_path, sep="\s+", header=None, on_bad_lines="skip")
+            # except pd.errors.ParserError as e:
+            #     print(f"Error parsing {file_path}: {e}")
+            #     return None, None
+    
         # Convert all data to numeric, replacing non-numeric values with NaN
         #Replacing initial 3 NAN values with Nan
         data = data.apply(pd.to_numeric, errors='coerce')
@@ -91,6 +96,9 @@ class DataLoading:
                     print("File does not exist: ", file_path)
                     continue
                 grid, time = self.load_files(file_path)
+                if grid is None or time is None:
+                    print("Failed to load files.")
+                    return
                 grid = self.padding(grid)
                 mean_config += grid/c_bulk
                 if i % 10 == 0:
@@ -127,6 +135,11 @@ class DataLoading:
                 full_path = self.kmc_data + config_folder
                 if os.path.isdir(full_path): ##Only read directories
                     file_path = full_path + "/avg_trj.npy"
+                    ##check if file path exists
+
+                    if not os.path.exists(file_path):
+                        print("File does not exist: ", file_path)
+                        continue
                     grid = np.load(file_path)
                     grid = np.reshape(grid, (grid.shape[0],grid.shape[2],grid.shape[1],grid.shape[3]))                     
                     grids.append(grid)
