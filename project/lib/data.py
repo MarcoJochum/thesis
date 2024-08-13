@@ -24,18 +24,22 @@ def make_sequence(data, seq_len, next_step):
     data = torch.tensor(data)
     nConfigs    = data.shape[0]
     nSamples    = (data.shape[1]-seq_len)
-    X           = np.empty([nConfigs,nSamples, seq_len, data.shape[-1]])
-    #TODO: Adapth the output shape depending on wheter error should be computed
+    if len(data.shape) == 4:
+        X  = np.empty([nConfigs,nSamples, seq_len,data.shape[-2], data.shape[-1]])
+        Y  = np.empty([nConfigs, nSamples, seq_len, data.shape[-2], data.shape[-1]])
+    else:
+        X  = np.empty([nConfigs,nSamples, seq_len, data.shape[-1]])
+        Y  = np.empty([nConfigs, nSamples, seq_len,  data.shape[-1]])
+        # Fill the input and output arrays with data
+     #TODO: Adapth the output shape depending on wheter error should be computed
     # at every itermediate step or only for the prediction steps
-    Y           = np.empty([nConfigs, nSamples, seq_len,data.shape[-1]])
-    # Fill the input and output arrays with data
-    
+    print("X shape:", X.shape)
     for i in tqdm(np.arange(data.shape[0])):
         k = 0
         for j in np.arange(data.shape[1]-seq_len- next_step):
-                X[i,k] = data[0,j        :j+seq_len].detach().numpy()   
+                X[i,k] = data[i,j        :j+seq_len].detach().numpy()   
                 #TODO: Similarly to above this would also need to be adapted
-                Y[i,k] = data[0, j+next_step :j+seq_len+next_step].detach().numpy()
+                Y[i,k] = data[i, j+next_step :j+seq_len+next_step].detach().numpy()
                 k    = k + 1
     
     print(f"The training data has been generated, has shape of {X.shape, Y.shape}")
