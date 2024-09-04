@@ -45,3 +45,7 @@ def unshape_vae(x, n_configs, n_time, lat):
     else:
         x = torch.reshape(x, (n_configs, n_time, 50,100))
     return x
+
+def mean_absolute_percentage_error(y_true, y_pred): 
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
