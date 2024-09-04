@@ -101,7 +101,7 @@ class latLNN(nn.Module):
         configs= x.shape[0]
         seq=x.shape[1] 
         x_hat = torch.reshape(x, (x.shape[0]*x.shape[1],1,x.shape[3],x.shape[4]))
-        
+        breakpoint()
         _,z,mu,log_var = self.VAE(x_hat)
         
         z = torch.reshape(z, (configs,seq,-1))
@@ -116,3 +116,66 @@ class latLNN(nn.Module):
         y = torch.reshape(y_hat, (configs,seq,1,x.shape[3],x.shape[4]))
         
         return y,hx, mu, log_var
+
+class Encoder_lstm(nn.Module):
+    def __init__(self, latent_dim, hidden, num_layers=1):
+        super(Encoder_lstm, self).__init__()
+        self.lstm = nn.LSTM(latent_dim, hidden, num_layers, batch_first=True)
+
+
+
+    def forward(self, x):
+        output, hidden = self.lstm(x)
+
+        return output, hidden
+
+class Decoder_lstm(nn.Module):
+    def __init__(self, latent_dim, hidden, num_layers=1):
+        super(Decoder_lstm, self).__init__()
+        self.lstm = nn.LSTM(latent_dim, hidden, num_layers, batch_first=True)
+        self.fc = nn.Linear(hidden, latent_dim)
+
+    def forward(self, initial_input, encoder_outputs, hidden, targets, tf_prob):
+
+        decoder_seq_length = targets.shape[1]
+        batch_size = targets.shape[0]
+        batch_vec = torch.linspace(0, batch_size-1, 1)
+        outputs = torch.zeros(targets.shape).to(targets.device).unsqueeze(1)
+        input = initial_input.unsqueeze(1)
+
+        for t in range(decoder_seq_length):
+            #hidden[0] = hidden[0].permute(1,0,2)
+            #hidden[1] = hidden[1].permute(1,0,2)
+            output, hidden = self.lstm(input, (hidden[0], hidden[1]))
+            output = self.fc(output)
+            outputs[:, :,t] = output
+            ###Need create target tensor that is also encoded with the VAE and matches the latent dim
+            ##need to preserve the time dimension which should just be one
+            input = output if torch.rand(1) > tf_prob else targets[:, t].unsqueeze(1)
+        
+        return outputs
+    def evaluate(self, initial_input, encoder_outputs, hidden):
+        decoder_seq_length = 1 
+        
+        output, hidden = self.lstm(initial_input.unsqueeze(1),  (hidden[0], hidden[1]))
+
+        output = self.fc(output)
+        return output
+        
+    
+       
+
+class Seq2seq(nn.Module):
+    def __init__(self, encoder, decoder):
+        super(Seq2seq, self).__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+        
+    def forward(self, encoder_inputs, targets,  tf_prob):
+        encoder_outputs, hidden = self.encoder(encoder_inputs)
+        outputs = self.decoder(encoder_inputs[:,-1], encoder_outputs, hidden, targets, tf_prob)
+        return  outputs
+    def evaluate(self, encoder_inputs):
+        encoder_outputs, hidden = self.encoder(encoder_inputs)
+        outputs = self.decoder.evaluate(encoder_inputs[:,-1], encoder_outputs, hidden)
+        return outputs
