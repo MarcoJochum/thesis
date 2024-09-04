@@ -219,6 +219,7 @@ def train_comb(model, criterion, optimizer, train_loader, val_loader, time, KLD_
             optimizer.zero_grad()
             y_pred, hx, mu, log_var = model(x,None,t=time)
             KLD = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
+            breakpoint()
             rec_loss = criterion(y_pred, y)
             loss =  rec_loss + KLD * KLD_weight
             loss.backward()
@@ -245,3 +246,67 @@ def train_comb(model, criterion, optimizer, train_loader, val_loader, time, KLD_
             print('Model updated:', epoch)
         scheduler.step(val_loss.item()/len(val_loader))
     return best_model
+
+
+def train_seq(model, VAE, criterion, optimizer, train_loader, val_loader, num_epochs, model_name,
+               tf_prob_max=0.6, tf_prob_min=0.1): 
+    VAE.to(device)
+    #needs to be recomputed at each iteration over the dataset
+    
+
+    scheduler = lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.9)
+    best_loss = 1e8 
+    
+    for epoch in range(num_epochs):
+        epoch_loss = 0
+        val_loss = 0 
+        tf_prob_t = max(tf_prob_max - epoch*0.01, tf_prob_min)
+        for i,(x, y, target) in enumerate(train_loader):
+            
+             
+            x = x.to(device)
+            y = y.to(device)
+            target = target.to(device)
+            optimizer.zero_grad()
+            
+            
+            y_pred_lat = model(x, target, tf_prob_t)
+            
+            y_pred_lat = torch.reshape(y_pred_lat,(y_pred_lat.shape[0]*y_pred_lat.shape[2],1
+                                                   ,y_pred_lat.shape[3]))
+            
+            y_pred = VAE.decoder(y_pred_lat)
+            
+            
+            y_pred = torch.reshape(y_pred, (y.shape))
+            y_pred = torch.mean(y_pred, dim=-2)
+            y = torch.mean(y, dim=-2)
+            loss = criterion(y_pred, y)
+
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
+            
+        
+        for x_val, y_val, target in val_loader:
+            x_val = x_val.to(device)
+            y_val = y_val.to(device)
+            target = target.to(device)
+            y_val_pred_lat = model(x_val, target, tf_prob=0.0)
+            
+            y_val_pred_lat = torch.reshape(y_val_pred_lat,(y_val_pred_lat.shape[0]*y_val_pred_lat.shape[2],1,
+                                                           y_val_pred_lat.shape[3]))
+            y_val_pred = VAE.decoder(y_val_pred_lat)
+            y_val_pred = torch.reshape(y_val_pred, (y_val.shape))
+            val_loss =+ criterion(y_val_pred, y_val)
+        if val_loss.item()/len(val_loader.dataset) < best_loss:
+                best_loss = val_loss/len(val_loader.dataset)
+                print('Model updated:', epoch)
+                best_model = copy.deepcopy(model)
+                torch.save(best_model, model_name)
+
+        print('Epoch {}/{} Loss: {:.4f} '.format(epoch+1,num_epochs, epoch_loss/len(train_loader.dataset)))
+        print('Validation loss:', val_loss.item()/len(val_loader.dataset))
+        scheduler.step(val_loss.item()/len(val_loader.dataset))
+    return best_model
+
