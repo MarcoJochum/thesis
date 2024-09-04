@@ -11,6 +11,14 @@ from config.tft import Tft_config
 from NNs.autoencoder import *
 from lib.helper import *
 import warnings
+
+# import matplotlib
+
+
+# update latex preamble
+
+
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 warnings.filterwarnings("ignore")
 import logging
@@ -25,7 +33,7 @@ def mean_absolute_percentage_error(y_true, y_pred):
 
 
 VAE = torch.load("models/model_vae_lin.pth", map_location=torch.device("cpu"))
-tft_model = TFTModel.load("models/tft_model_lb_no_stat_cov.pt", map_location="cpu")##
+tft_model = TFTModel.load("models/tft_model_lb_5_2.pt", map_location="cpu")##
 tft_model.to_cpu()
 
 data_train = Tft_config.data_train
@@ -43,13 +51,14 @@ with torch.no_grad():
    data_train_vae = unshape_vae(data_train_vae, data_train.shape[0], data_train.shape[1], True)##
    data_test_vae = unshape_vae(data_test_vae, data_test.shape[0], data_test.shape[1], True)##
 
-
+model_input = data_test_vae[:, :5]
+print("model input shape", model_input.shape)
 train_series_list = []    
 for i in range(data_train.shape[0]):
     #add scaling in this loop
     #train scaler 
-    #stat_cov = pd.DataFrame(data ={"epsr": [float(train_params[i,0])], "conc": [float(train_params[i,1])], "V_bias": [float(train_params[i,2])]})##
-    series = TimeSeries.from_values(data_train_vae[i,:5].numpy())#, static_covariates=stat_cov)##
+    stat_cov = pd.DataFrame(data ={"epsr": [float(train_params[i,0])], "conc": [float(train_params[i,1])], "V_bias": [float(train_params[i,2])]})##
+    series = TimeSeries.from_values(data_train_vae[i,:5].numpy(), static_covariates=stat_cov)##
     
     train_series_list.append(series)##
 
@@ -57,8 +66,8 @@ test_series_list = []
 for i in range(data_test.shape[0]):
     #add scaling in this loop
     #train scaler 
-    #stat_cov = pd.DataFrame(data ={"epsr": [float(test_params[i,0])], "conc": [float(test_params[i,1])], "V_bias": [float(test_params[i,2])]})##
-    series = TimeSeries.from_values(data_test_vae[i,:5].numpy())#, static_covariates=stat_cov)##
+    stat_cov = pd.DataFrame(data ={"epsr": [float(test_params[i,0])], "conc": [float(test_params[i,1])], "V_bias": [float(test_params[i,2])]})##
+    series = TimeSeries.from_values(model_input[i].numpy(), static_covariates=stat_cov)##
     
     test_series_list.append(series)##
 
@@ -66,19 +75,22 @@ for i in range(data_test.shape[0]):
 
 
 y_pred_lat = torch.zeros((n_configs,Tft_config.inference_steps,latent_dim))##
-y_pred_test_lat = torch.zeros((n_configs,Tft_config.inference_steps,latent_dim))##
+y_pred_test_lat = torch.zeros((n_configs,Tft_config.inference_steps,latent_dim))###
+y_pred_test_std = torch.zeros((n_configs,Tft_config.inference_steps,latent_dim))###
 train_trj = data_train[:n_configs]
 test_trj = data_test[:n_configs]
-
+pred_test_series_list = []
+pred_train_series_list = []
 for j in range(0,n_configs):
-    pred = tft_model.predict(series=train_series_list[j], n = Tft_config.inference_steps, num_samples=Tft_config.n_samples_inference)##
+    pred_train = tft_model.predict(series=train_series_list[j], n = Tft_config.inference_steps, num_samples=Tft_config.n_samples_inference)##
     
-
-    y_pred_lat[j] = torch.mean(torch.tensor(pred.all_values()), 2)##
+    pred_train_series_list.append(pred_train)
+    y_pred_lat[j] = torch.mean(torch.tensor(pred_train.all_values()), 2)##
 
     pred_test= tft_model.predict(series=test_series_list[j], n = Tft_config.inference_steps, num_samples=Tft_config.n_samples_inference)##
-    
+    pred_test_series_list.append(pred_test)
     y_pred_test_lat[j] = torch.mean(torch.tensor(pred_test.all_values()), 2)##
+    y_pred_test_std[j] = torch.std(torch.tensor(pred_test.all_values()), 2)##
 
     
 
@@ -88,69 +100,33 @@ y_pred_lat = reshape_vae(y_pred_lat)
 
 print("MAPE on train set:", mape)
 y_pred_test_lat = reshape_vae(y_pred_test_lat)
-
+y_pred_test_std = reshape_vae(y_pred_test_std)
 y_pred = VAE.decoder(y_pred_lat)
 y_pred_test = VAE.decoder(y_pred_test_lat)
 
+y_pred_test_std = VAE.decoder(y_pred_test_std)
 y_pred = unshape_vae(y_pred, n_configs, Tft_config.inference_steps, False)
 y_pred_test = unshape_vae(y_pred_test, n_configs, Tft_config.inference_steps, False)
+y_pred_test_std = unshape_vae(y_pred_test_std, n_configs, Tft_config.inference_steps, False)
 
-## average across x dimension
+##save predictions
+np.save("../../data_kmc/2d_results/lin_time/tft_model_lb_5_2/y_pred_test.npy", y_pred_test.detach().numpy())
+np.save("../../data_kmc/2d_results/lin_time/tft_model_lb_5_2/y_pred_test_std.npy", y_pred_test_std.detach().numpy())
+np.save("../../data_kmc/2d_results/lin_time/tft_model_lb_5_2/y_pred_train.npy", y_pred.detach().numpy())
 
-y_pred = torch.mean(y_pred, 2)
-y_pred_test = torch.mean(y_pred_test, 2)
+explainer = TFTExplainer(tft_model,background_series=pred_test_series_list)
+explanation = explainer.explain()
+explainer.plot_variable_selection(explanation)
+stat_cov = explanation.get_static_covariates_importance()
+print("stat_cov", stat_cov)
+first_row = stat_cov[0].iloc[0]
+print("first row", first_row)
+fig, ax = plt.subplots()
+ax.bar(stat_cov[0].columns, stat_cov[0].iloc[0].values)
 
-with open("../../data_kmc/2d_sets/test_set_lin_80_20_list.txt", "r") as f:
-    names= f.readlines()
-names = [line.strip() for line in names]
-names = names[:n_configs]  
-
-train_trj = torch.mean(train_trj.squeeze(), dim=2)
-test_trj = torch.mean(test_trj.squeeze(), dim=2)
-
-##plot
-
-labels = [] 
-time = np.logspace(-7, -4, 1000, 'o')   
-with torch.no_grad():
-      
-    fig,axs = plt.subplots(n_configs,2, figsize=(6,24))
-    for j in range(5, n_configs):
-
-        for i in range(0, 200,1):
-            
-           
-            axs[j,0].plot(np.linspace(0,100,100), y_pred_test[j, i].numpy())
-            labels.append([f"t = {time[i]}"])
-            axs[j,0].set_ylim(0, 5)
-            axs[j,0].set_title("Prediction "+ names[j])
-            #axs[0].legend(labels)
-
-            axs[j,1].plot(np.linspace(0,100,100), test_trj[j,5+i].numpy())
-            #labels.append([f"t = {time[i-1]}"])
-            axs[j,1].set_ylim(0, 5)
-            axs[j,1].set_title("Ground truth "+ names[j])
-            #axs[1].legend(labels)
-
-
-fig.suptitle("Prediction on test set. With 5 steps given as input.\n Prediction horizon 200 steps.\n No static covariates", fontsize=16)
-plt.tight_layout(rect=[0, 0, 1, 0.96])  # Adjust layout to make room for the suptitle
-plt.savefig("tft_pred_lb_5_no_stat_cov.png")
-mape_list = []
-for i in range(0, n_configs):
-    mape = mean_absolute_percentage_error(test_trj[i,5:505].detach().numpy(), y_pred_test[i].detach().numpy())
-    mape_list.append(mape)
-mape_list = np.array(mape_list)
-print("Mean absolute percentage error on test set:", (mape_list))
-print("Mean of all Mean absolute percentage errors on test set:", np.mean(mape_list))
-print("Standard deviation of mean absolute percentage error on test set:", np.std(mape_list))
-
-
-mean_error = mean_absolute_percentage_error(train_trj[-1,5:505].detach().numpy(), y_pred[-1].detach().numpy())
-
-
-
-# explainer = TFTExplainer(tft_model,background_series=test_series_list)
-# explanation = explainer.explain(test_series_list[5])
-# explainer.plot_variable_selection(explanation)
-# plt.savefig("tft_expl_2.png")
+ax.set_ylabel('Importance [%]')
+ax.set_title('Static Covariates Importance')
+plt.xticks(rotation=45)  # Rotate x-axis labels if needed
+plt.tight_layout()
+plt.savefig("stat_cov_importance.png")
+plt.savefig("fig_report/stat_cov_importance_native.png", format="png")
