@@ -11,10 +11,11 @@ def make_sequence(data, seq_len, next_step):
     Args: 
         data: A numpy array follows [Ntime, Nmode] shape
         seq_len: (int) Sequence length
+        next_step: (int) Number of steps to predict in the future
 
     Returns:
-        X: Numpy array for Input 
-        Y: Numpy array for Output
+        X: Torch tensor for Input 
+        Y: Torch tensor for Output
     """
     
     
@@ -45,3 +46,30 @@ def make_sequence(data, seq_len, next_step):
     print(f"The training data has been generated, has shape of {X.shape, Y.shape}")
 
     return torch.tensor(X, dtype=torch.float32), torch.tensor(Y, dtype=torch.float32)
+
+def make_sequence2(data, sequence_length, prediction_horizon):
+    batch_size = data.shape[0]
+
+    total_length = data.shape[1]
+    
+    x_sequences = []
+    y_sequences = []
+    
+    for batch in range(batch_size):
+        x_batch_sequences = []
+        y_batch_sequences = []
+        for i in range(total_length - sequence_length - prediction_horizon+1):
+            x_seq = data[batch, i:i + sequence_length, :]
+            
+            y_seq = data[batch, i + sequence_length:i + sequence_length + prediction_horizon, :]
+            
+            x_batch_sequences.append(x_seq)
+            y_batch_sequences.append(y_seq)
+        
+        x_sequences.append(torch.stack(x_batch_sequences))
+        y_sequences.append(torch.stack(y_batch_sequences))
+    
+    x_sequences = torch.stack(x_sequences)
+    y_sequences = torch.stack(y_sequences)
+    
+    return x_sequences, y_sequences
