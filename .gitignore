@@ -4,7 +4,7 @@ Code_nature_paper_transformers
 ##
 __pycache__
 lib/__pycache__
-
+*.pyc
 ##VS code
 .vs
 
@@ -18,6 +18,8 @@ models
 
 #Plots
 *.png
+*.eps
+
 #Tensorboard logs
 runs
-thesis/project/lib/__pycache__/
+thesis/project/lib/__pycache__
