@@ -112,7 +112,52 @@ class DataLoading:
 
         #return mean_config
 
-    def make_data_set(self, file_name=None, list_configs=None):
+    def std_trj(self, config_folder):
+        '''
+        Average the trajectories of the kMC data and save the averaged trajectory data in 
+        the same directory as the original data.
+
+        Parameters:
+            
+            config_folder (str): Name of the folder containing a specific parameter configuration.
+            
+        '''
+
+        
+        mean_config = np.zeros((self.n_time,self.n_x,self.n_y,self.n_z)) 
+        #Needs to be defined because of += operation
+        
+
+            
+        full_path = self.kmc_data + config_folder
+
+        if os.path.isdir(full_path): ##Only read directories
+            print("Currently loading:", config_folder)
+            c_bulk = self.find_c(config_folder) #Extract concentration from folder name
+            grid_list = []  
+            for i in range(self.n_prod):
+                prod_path = "prod_" + str((i)) + "/"
+                file_path = full_path+ "/" + prod_path + self.suffix
+                if not os.path.exists(file_path): #Catch non-existing production runs
+                    print("File does not exist: ", file_path)
+                    continue
+                grid, time = self.load_files(file_path)
+                if grid is None or time is None:
+                    print("Failed to load files.")
+                    return
+                grid = self.padding(grid)
+                grid_list.append(grid)
+                if i % 10 == 0:
+                    print("Progress: ", i/self.n_prod*100, "%")
+                
+            grid_list = np.stack(grid_list)
+            std_config = np.std(grid_list, axis=0)
+            #std_config = np.log10(std_config + 1)##Log10 transformation
+            np.save(self.kmc_data + config_folder + "/std_trj", std_config)
+
+
+
+    def make_data_set(self, file_name=None, list_configs=None, moment=None):
         '''
         Creates data set from the previously averaged and safed trajectories for different configs.
 
@@ -123,10 +168,13 @@ class DataLoading:
             
             list_configs (list): List of configuration folders to load. 
             Default is None, which loads all folders in the data folder.
+
+            moment (str): Type of data to load. Options are "avg" for averaged trajectories and "std" for standard deviation of trajectories.
         '''
         grids = []
         files = []
         counter = 0
+
         if list_configs:
             
             for config_folder in list_configs:
@@ -134,7 +182,7 @@ class DataLoading:
                 print("Currently loading from list:", config_folder)
                 full_path = self.kmc_data + config_folder
                 if os.path.isdir(full_path): ##Only read directories
-                    file_path = full_path + "/avg_trj.npy"
+                    file_path = full_path + "/"+moment+"_trj.npy"
                     ##check if file path exists
 
                     if not os.path.exists(file_path):
@@ -152,7 +200,7 @@ class DataLoading:
                 print("Currently loading:", config_folder)
                 full_path = self.kmc_data + config_folder
                 if os.path.isdir(full_path): ##Only read directories
-                    file_path = full_path + "/avg_trj.npy"
+                    file_path = full_path + "/"+moment+"_trj.npy"
                     grid = np.load(file_path) 
                     grid = np.reshape(grid, (grid.shape[0],grid.shape[2],grid.shape[1],grid.shape[3]))               
                     grids.append(grid)
@@ -186,8 +234,9 @@ class DataLoading:
         if t_padding > 0:
             print("Padding with zeros. Padding size: ", t_padding, " rows.")
         pad_width = ((0,t_padding), (0,0), (0,0), (0,0))
-        padded_grid = np.pad(grid, pad_width, 'constant', constant_values=pad_value)
-        return padded_grid
+        grid = np.pad(grid, pad_width, 'constant', constant_values=pad_value)
+        
+        return grid#[:1000]
             
     def find_c(self, config_folder):
         '''
