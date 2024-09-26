@@ -28,9 +28,9 @@ batch_size= VAE_config.batch_size
 num_epochs = VAE_config.num_epochs
 model_name = VAE_config.model_name   
 parameters = dict(  
-    latent_dim = [VAE_config.latent_dim],
-    base = [VAE_config.base],
-    lr = [VAE_config.lr]
+    latent_dim = [10],
+    base = [4],
+    lr = [0.001]
 )
 ##Data
 data_train = VAE_config.data_train
@@ -39,9 +39,10 @@ mean = torch.mean(data_train)
 ##Scale data by mean
 data_train = data_train/mean
 data_test = data_test/mean
+
 #Use subset of data for training
-data_train = data_train[:,:500]
-data_test = data_test[:,:500]
+data_train = data_train[:,:VAE_config.n_steps]
+data_test = data_test[:,:VAE_config.n_steps]
 
 time = torch.linspace(1e-07,1e-04,1000)
 ##combine timesteps and config dim for training of the ae model
@@ -49,11 +50,12 @@ data = torch.reshape(data_train,(data_train.shape[0]*data_train.shape[1],1,50,10
 ##Normalize data
 
 
-time_train = torch.repeat_interleave(time, data_train.shape[0], dim=0) #repeat for each config --> 51 in training
+
 
 
 train_size = int(0.8 * len(data))
 val_size = len(data) - train_size
+breakpoint()
 data_train, data_val = torch.utils.data.random_split(data, [train_size, val_size])
 ##Corresponds almost to 80/20 split and 
 #ensures that the configs are not split within
@@ -90,25 +92,30 @@ for run_id, (latent_dim, base, lr) in enumerate(product(*parameters.values())):
     comment = f' latent_dim={latent_dim} base={base} lr={lr}'
     tb = SummaryWriter(comment=comment) # tensorboard writer
     model.train()
-    train_vae(model, criterion, optimizer, train_loader, val_loader, num_epochs=num_epochs, model_name=model_name)
-    model.cpu() # move the model to the cpu
-    #torch.save(best_model, 'model_vae_lin.pth')
+    train_loss, train_KLD, best_model = train_vae_tb(model, criterion, optimizer, train_loader, val_loader,VAE_config, num_epochs=num_epochs, tb=tb)
+     # move the model to the cpu
+    
+    model.load_state_dict(best_model)
     model.eval()
-    model.load_state_dict(torch.load(model_name, map_location=device))
+    model.to(torch.device("cpu"))
     test_loss = 0
+    val_loss = 0
     for x_test in test_loader:
             # Get the inputs; data is a list of [inputs, labels]
             #data = data.unsqueeze(1)
             #x_test = data.to(x_test)
             decoded, _,_,_ = model(x_test)
             test_loss += criterion(decoded, x_test)#+ (torch.sum(y_train!=y_pred))
-    
+    for x_val in val_loader:
+            decoded, _,_,_ = model(x_val)
+            val_loss += criterion(decoded, x_val)
     test_loss = test_loss/len(test_loader.dataset)
-    print("Test loss", test_loss.item())
-    #tb.add_hparams(
-    #{"latent_dim": latent_dim, "base": base, "lr": lr},{"Train loss": train_loss, "Train KLD": train_KLD,  "Test loss": test_loss.item()}
-    #)
+    val_loss = val_loss/len(val_loader.dataset)
+    tb.add_hparams(
+    {"latent_dim": latent_dim, "base": base, "lr": lr},{"Train loss": train_loss, "Train KLD": train_KLD,  "Val loss": val_loss.item()}
+    )
 tb.close()
+torch.save(model, "models/model_vae_lin_lat_10.pth")
 
 
 
