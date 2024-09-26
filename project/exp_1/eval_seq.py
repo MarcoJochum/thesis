@@ -79,7 +79,7 @@ y_pred = reshape_vae(y_pred_lat)
 y_pred = vae.decoder(y_pred)
 
 y_pred = unshape_vae(y_pred, num_configs, t+seq_len+1, False)
-time = np.logspace(-8, -4, 1000, 'o')
+time = np.logspace(-7, -4, 1000, 'o')
 
 test_trj = torch.mean(test_trj.squeeze(), dim=2)
 y_pred = torch.mean(y_pred, dim=2).squeeze()
