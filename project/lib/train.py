@@ -69,17 +69,17 @@ def train_vae_tb(model, criterion, optimizer, train_loader, val_loader, VAE_conf
         running_kld = 0.0
         running_sup = 0.0
         # Loop over the data loader
-        for x_train, params_train, time in train_loader:
+        for x_train in train_loader:
             
             x_train = x_train.to(device)
-            params_train = params_train.to(device)  
+             
             decoded, encoded, mu, log_var  = model(x_train)
             
             #Force the first 3 elements to be the parameters
-            L_sup = criterion(encoded[:,:3], params_train)
+            
             
             KLD = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
-            loss = criterion(decoded, x_train) + VAE_config.KLD_weight * KLD + VAE_config.L_sup_weight *L_sup
+            loss = criterion(decoded, x_train) + VAE_config.KLD_weight * KLD 
 
         
             # Zero the parameter gradients
@@ -88,18 +88,17 @@ def train_vae_tb(model, criterion, optimizer, train_loader, val_loader, VAE_conf
             optimizer.step()
             running_loss += loss.item()#*data.size(0)
             running_kld += KLD.item()#*data.size(0)
-            running_sup += L_sup.item()
+            
         
         ##Validation loss
         val_loss = 0
-        for x_val, params_val, time in val_loader:
+        for x_val in val_loader:
             x_val = x_val.to(device)
-            params_val = params_val.to(device)
             model.eval()
             val_pred, val_encoded, mu, log_var = model(x_val)
             KLD = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
-            L_sup = criterion(val_encoded[:,:3], params_val)
-            val_loss += criterion(val_pred, x_val) + 1.0*KLD + 0.01*L_sup
+            
+            val_loss += criterion(val_pred, x_val) + 1.0*KLD 
             
           
         model.train()   
@@ -113,15 +112,15 @@ def train_vae_tb(model, criterion, optimizer, train_loader, val_loader, VAE_conf
         # Print the average loss for the epoch
         epoch_loss = running_loss / len(train_loader.dataset)
         epoch_KLD = running_kld / len(train_loader.dataset)
-        epoch_sup = running_sup / len(train_loader.dataset)
+        
         tb.add_scalar('Loss', epoch_loss, epoch)
         tb.add_scalar('KLD', epoch_KLD, epoch)
         tb.add_scalar('Validation Loss', val_loss.item()/len(val_loader.dataset), epoch)      
         tb.add_scalar('Learning rate', scheduler.get_lr()[0] , epoch)
 
         
-        print('Epoch {}/{} Loss: {:.4f}  Epoch KLD: {:.4f}  Epoch Parameter loss {:.4f}'
-                        .format(epoch+1,num_epochs, epoch_loss, epoch_KLD, epoch_sup)) 
+        print('Epoch {}/{} Loss: {:.4f}  Epoch KLD: {:.4f}  '
+                        .format(epoch+1,num_epochs, epoch_loss, epoch_KLD)) 
         scheduler.step() 
     return epoch_loss, epoch_KLD, best_model
 
