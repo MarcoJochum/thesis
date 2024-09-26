@@ -67,8 +67,8 @@ class VAE(CAE):
 
         z = self.reparametrize(mu, logvar)
         ##Do this before decoding
-        if not self.mode == 'train':
-            z[:,:3] = params
+        #if not self.mode == 'train':
+        #    z[:,:3] = params
         decoded = self.decoder(z)
         
         return  decoded, z, mu, logvar
