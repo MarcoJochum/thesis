@@ -2,23 +2,23 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from config.tft import Tft_config
-from lib.helper import mean_absolute_percentage_error
-y_pred = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_model_lb_5_2/y_pred_train.npy"), dtype=torch.float32)
-y_pred_test = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_model_lb_5_2/y_pred_test.npy"), dtype=torch.float32) 
-y_pred_test_std = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_model_lb_5_2/y_pred_test_std.npy"), dtype= torch.float32)
+from lib.helper import *
+y_pred = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_lat_10_opt_qr/y_pred_train.npy"), dtype=torch.float32)
+y_pred_test = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_lat_10_opt_qr/y_pred_test.npy"), dtype=torch.float32) 
+y_pred_test_std = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_lat_10_opt_qr/y_pred_test_std.npy"), dtype= torch.float32)
 data_train = Tft_config.data_train
 train_params = Tft_config.train_params##
 n_configs = y_pred.shape[0]
 data_test = Tft_config.data_test
 test_params = Tft_config.test_params##
-train_trj = data_train[:n_configs]
-test_trj = data_test[:n_configs]
+train_trj = data_train
+test_trj = data_test
 
 
 with open("../../data_kmc/2d_sets/test_set_lin_80_20_list.txt", "r") as f:
     names= f.readlines()
 names = [line.strip() for line in names]
-names = names[:n_configs]  
+names = names  
 
 ##2D plots
 z_width = np.linspace(0, 100, 100)
@@ -41,7 +41,7 @@ for j in range(0):
     fig.colorbar(im1, ax=axs[1], label="Relative concentration")
 
     plt.tight_layout()
-    plt.savefig(f"fig_report/animation/surface_plot_t_"+str(j)+".png", format="png")
+    plt.savefig(f"fig_report/animation/test"+str(j)+".png", format="png")
     plt.close(fig)
 
 
@@ -71,19 +71,19 @@ with torch.no_grad():
             axs[0,k].plot(z_width, y_pred_test[j, i].numpy(), label = time_label)
             #axs[0,k].fill_between(z_width, y_pred_test[j,i,:].numpy() - y_pred_test_std[j,i,:].numpy(), y_pred_test[j,i,:].numpy() + y_pred_test_std[j,i,:].numpy(), alpha=0.3)
             axs[0,k].set_ylim(0, 5)
-            axs[0, k].set_yscale('log') 
+            #axs[0, k].set_yscale('log') 
             axs[0,k].set_xlabel("Position z [nm]")
             axs[0,k].set_ylabel("Relative concentration")
-            axs[0,k].set_title("Prediction "+ names[j], fontsize=10)
+            axs[0,k].set_title("Prediction ")#+ names[j], fontsize=10)
             if k== 0:
                 axs[0,k].legend()
 
             axs[1,k].plot(z_width, test_trj[j,5+i].numpy(), label = time_label)
             axs[1,k].set_ylim(0, 5)
-            axs[1, k].set_yscale('log') 
+            #axs[1, k].set_yscale('log') 
             axs[1, k].set_xlabel("Position z [nm]")
             axs[1, k].set_ylabel("Relative concentration")
-            axs[1,k].set_title("Ground truth "+ names[j], fontsize=10)
+            axs[1,k].set_title("Ground truth ")#+ names[j], fontsize=10)
             if k == 0:    
                 axs[1,k].legend()
         
@@ -94,17 +94,23 @@ fig.suptitle("Prediction on test set with 5 steps given as input.\n Prediction h
 plt.tight_layout(rect=[0, 0, 1, 0.96])  # Adjust layout to make room for the suptitle
 plt.savefig("logscale.png", format="png")
 mape_list = []
-for i in range(0, n_configs):
-    mape = mean_absolute_percentage_error(test_trj[i,5:505].detach().numpy(), y_pred_test[i].detach().numpy())
+smape_list = []
+for i in range(Tft_config.train_size, train_trj.shape[0]):
+    mape = mean_absolute_percentage_error(train_trj[i,5:505].detach().numpy(), y_pred[i].detach().numpy())
     mape_list.append(mape)
+    smape = s_mape(train_trj[i,5:505].detach().numpy(), y_pred[i].detach().numpy())
+    smape_list.append(smape)
 mape_list = np.array(mape_list)
+smape_list = np.array(smape_list)
+print(mape_list)
 
+#mape_list[13] = 0
 
-mape_list[13] = 0
-
-print("Mean of all Mean absolute percentage errors on test set:", np.sum(mape_list)/(n_configs-1))
-print("Standard deviation of mean absolute percentage error on test set:", np.std(mape_list))
-
+print("Mean of all Mean absolute percentage errors on val set:", np.sum(mape_list)/(train_trj.shape[0]-Tft_config.train_size))
+print("Standard deviation of mean absolute percentage error on val set:", np.std(mape_list))
+print("Mean of all Symmetric mean absolute percentage errors on val set:", np.sum(smape_list)/(train_trj.shape[0]-Tft_config.train_size))
+print("Standard deviation of symmetric mean absolute percentage error on val set:", np.std(smape_list))
+print("mean squared prediction error", torch.mean((train_trj[:,5:505] - y_pred[:])**2))
 
 mean_error = mean_absolute_percentage_error(train_trj[-1,5:505].detach().numpy(), y_pred[-1].detach().numpy())
 
