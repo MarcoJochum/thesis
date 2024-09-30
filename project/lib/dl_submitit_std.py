@@ -1,10 +1,13 @@
 from NNs.autoencoder import *
 from NNs.ae_layers import * 
-from lib.train import *
+from .train import *
 from NNs.RNN import *
-from lib.data import *
-from lib.data_loading import *
+from .data import *
+from .data_loading import *
 import submitit
+
+## Execute from the project root
+
 ## Data Loading
 executor = submitit.AutoExecutor(folder='logs/submitit_logs')
 executor.update_parameters(timeout_min=10, slurm_partition="microcloud", mem_gb=16)
@@ -25,8 +28,8 @@ train_data = DataLoading(data_folder, n_prod, n_time, n_x, n_y, n_z, suffix, run
 jobs = []
 config_folder = train_data.kmc_data
 with executor.batch():
-    for config_folder in os.listdir(config_folder):
-        job = executor.submit(train_data.std_trj, config_folder)
+    for config_folders in os.listdir(config_folder):
+        job = executor.submit(train_data.std_trj, config_folders)
         jobs.append(job)
 #Combining data sets
 #files = train_data.make_folder_list("2d_lin_time_file_list.txt")
