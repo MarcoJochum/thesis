@@ -26,4 +26,4 @@
 source ../../thesis_env/bin/activate    
 
 ### run your program...
-srun python -m exp_1.tft_hyper
+srun python -m exp_1.tft_hyper --data_type "${1}"
