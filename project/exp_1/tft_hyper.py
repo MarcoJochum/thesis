@@ -12,6 +12,7 @@ import warnings
 import sys
 import optuna
 import pickle
+import argparse
 
 from optuna.integration.pytorch_lightning import PyTorchLightningPruningCallback
 import pytorch_lightning as pl
@@ -47,16 +48,24 @@ class OptunaPruning(PyTorchLightningPruningCallback, pl.Callback):
         super().__init__(*args, **kwargs)
 
 
+parser = argparse.ArgumentParser(description='Process some integers.')
+parser.add_argument('--data_type', type=str, choices=['avg', 'std'], default='avg', help='Type of data to use (avg or std)')
+args = parser.parse_args()
 
+vae= torch.load("models/model_vae_avg_final.pt", map_location=torch.device("cpu"))
 
-vae= torch.load("models/model_vae_lin_lat_10.pth", map_location=torch.device("cpu"))
+### ADAPT if training on std data
+if args.data_type == 'avg':
+    data_train = Tft_config.data_train_avg
+elif args.data_type == 'std':
+    data_train = Tft_config.data_train_std
+else:
+    raise ValueError("Invalid training data argument")
 
-data_train = Tft_config.data_train
 ##Rescaling the data, setting mean=1
 data_train = data_train/ torch.mean(data_train)
 data_train = data_train[:,:Tft_config.n_steps]
 train_params = Tft_config.train_params
-
 
 
 with torch.no_grad():
@@ -143,7 +152,7 @@ def print_callback(study, trial):
     print(f"Best value: {study.best_value}, Best params: {study.best_trial.params}")
 
 optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
-study_name = "optuna_studies/tft_study_4/tft_study_4"  # Unique identifier of the study.
+study_name = "optuna_studies/tft_study_5/tft_study_5"  # Unique identifier of the study.
 storage_name = "sqlite:///{}.db".format(study_name)
 
 
@@ -160,5 +169,5 @@ print(f"Best value: {study.best_value}, Best params: {study.best_trial.params}")
 
 
 # Save the sampler with pickle to be loaded later.
-with open("optuna_studies/tft_study_2/sampler.pkl", "wb") as fout:
+with open("optuna_studies/tft_study_5/sampler.pkl", "wb") as fout:
     pickle.dump(study.sampler, fout)

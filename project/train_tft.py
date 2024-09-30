@@ -10,6 +10,7 @@ from NNs.autoencoder import *
 from lib.helper import *
 import warnings
 import time
+import argparse
 import pytorch_lightning as pl
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 warnings.filterwarnings("ignore")
@@ -18,12 +19,16 @@ warnings.filterwarnings("ignore")
 
 config_opt_tft_study_4 = Tft_config()
 
+parser = argparse.ArgumentParser(description='Process some integers.')
+parser.add_argument('--data_type', type=str, choices=['avg', 'std'], default='avg', help='Type of data to use (avg or std)')
+args = parser.parse_args()
 
+VAE= torch.load("models/model_vae_"+ args.data_type +"_final.pt", map_location=torch.device("cpu"))
 
-
-VAE= torch.load("models/model_vae_lin_lat_10.pth", map_location=torch.device("cpu"))
-
-data_train = Tft_config.data_train
+if args.data_type == 'avg':
+    data_train = Tft_config.data_train_avg
+elif args.data_type == 'std':
+    data_train = Tft_config.data_train_std
 data_train = data_train/ torch.mean(data_train)
 data_train = data_train[:,:Tft_config.n_steps]
 train_params = Tft_config.train_params
@@ -74,6 +79,7 @@ my_model = TFTModel(
        "callbacks": [loss_logger],
        
     },
+    save_checkpoints=True, 
 )
 start_time = time.time()
 my_model.fit(series=train_series, val_series=val_series, verbose=True)
@@ -85,6 +91,8 @@ print("loss_logger.train_loss", loss_logger.train_loss)
 print("loss_logger.val_loss", loss_logger.val_loss)
 train_loss = np.array(loss_logger.train_loss)
 val_loss = np.array(loss_logger.val_loss)
-np.save("models/study_4/study_4_opt_qr_train_loss.npy", train_loss)
-np.save("models/study_4study_4_opt_qr_val_loss.npy", val_loss)
-my_model.save("models/study_4/tft_study_4_opt_qr.pt")
+np.save("models/study_5/study_5_opt_qr_train_loss_"+ args.data_type +".npy", train_loss)
+np.save("models/study_5/study_5_opt_qr_val_loss_"+ args.data_type +".npy", val_loss)
+
+best_model = my_model.load_from_checkpoint(model_name="lat_10_opt", best=True)
+best_model.save("models/study_5/tft_study_5_opt_qr_"+ args.data_type +".pt")
