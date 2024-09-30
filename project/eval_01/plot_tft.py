@@ -3,19 +3,36 @@ import numpy as np
 import matplotlib.pyplot as plt
 from config.tft import Tft_config
 from lib.helper import *
-y_pred = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_lat_10_opt_qr/y_pred_train.npy"), dtype=torch.float32)
-y_pred_test = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_lat_10_opt_qr/y_pred_test.npy"), dtype=torch.float32) 
-y_pred_test_std = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_lat_10_opt_qr/y_pred_test_std.npy"), dtype= torch.float32)
-data_train = Tft_config.data_train
+import argparse
+
+parser = argparse.ArgumentParser(description='Process some integers.')
+parser.add_argument('--data_type', type=str, choices=['avg', 'std'], default='avg', help='Type of data to use (avg or std)')
+args = parser.parse_args()
+
+y_pred = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_study_5_opt_qr_"+ args.data_type+ "/y_pred_train.npy"), dtype=torch.float32)
+y_pred_std = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_study_5_opt_qr_"+ args.data_type+ "/y_pred_train_std.npy"), dtype= torch.float32)
+y_pred_test = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_study_5_opt_qr_"+ args.data_type+ "/y_pred_test.npy"), dtype=torch.float32) 
+y_pred_test_std = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_study_5_opt_qr_"+ args.data_type+ "/y_pred_test_std.npy"), dtype= torch.float32)
+
+if args.data_type == 'avg':
+    data_train = Tft_config.data_train_avg
+    data_test = Tft_config.data_test_avg
+elif args.data_type == 'std':
+    data_train = Tft_config.data_train_std
+    data_test = Tft_config.data_test_std
+else:
+    print("Data type not recognized")
+    exit()
+data_test = data_test/ torch.mean(data_train) ## This has to preced the next line because the mean of the training data is used to normalize the test data
+data_train = data_train/ torch.mean(data_train)
 train_params = Tft_config.train_params##
 n_configs = y_pred.shape[0]
-data_test = Tft_config.data_test
 test_params = Tft_config.test_params##
 train_trj = data_train
 test_trj = data_test
 
 
-with open("../../data_kmc/2d_sets/test_set_lin_80_20_list.txt", "r") as f:
+with open("../../data_kmc/2d_sets/test_set_lin_80_20_"+ args.data_type + "_list.txt", "r") as f:
     names= f.readlines()
 names = [line.strip() for line in names]
 names = names  
@@ -49,6 +66,7 @@ for j in range(0):
 ## average across x dimension
 
 y_pred = torch.mean(y_pred, 2)
+y_pred_std = torch.mean(y_pred_std, 2)
 y_pred_test = torch.mean(y_pred_test, 2)
 y_pred_test_std = torch.mean(y_pred_test_std, 2)
 train_trj = torch.mean(train_trj.squeeze(), dim=2)
@@ -65,7 +83,7 @@ with torch.no_grad():
     k = 0
     for j in [14,15,9]:
         
-        for i in [10, 15, 20, 50, 100, 300, 499]:
+        for i in [10, 15, 20, 50, 100, 300, 800]:
             
             time_label = f"t = {time[i]:.2e}"
             axs[0,k].plot(z_width, y_pred_test[j, i].numpy(), label = time_label)
@@ -93,12 +111,13 @@ with torch.no_grad():
 fig.suptitle("Prediction on test set with 5 steps given as input.\n Prediction horizon 500 steps.", fontsize=16)
 plt.tight_layout(rect=[0, 0, 1, 0.96])  # Adjust layout to make room for the suptitle
 plt.savefig("logscale.png", format="png")
+plt.close(fig)  
 mape_list = []
 smape_list = []
 for i in range(Tft_config.train_size, train_trj.shape[0]):
-    mape = mean_absolute_percentage_error(train_trj[i,5:505].detach().numpy(), y_pred[i].detach().numpy())
+    mape = mean_absolute_percentage_error(train_trj[i,5:505].detach().numpy(), y_pred[i,:500].detach().numpy())
     mape_list.append(mape)
-    smape = s_mape(train_trj[i,5:505].detach().numpy(), y_pred[i].detach().numpy())
+    smape = s_mape(train_trj[i,5:505].detach().numpy(), y_pred[i,:500].detach().numpy())
     smape_list.append(smape)
 mape_list = np.array(mape_list)
 smape_list = np.array(smape_list)
@@ -110,9 +129,47 @@ print("Mean of all Mean absolute percentage errors on val set:", np.sum(mape_lis
 print("Standard deviation of mean absolute percentage error on val set:", np.std(mape_list))
 print("Mean of all Symmetric mean absolute percentage errors on val set:", np.sum(smape_list)/(train_trj.shape[0]-Tft_config.train_size))
 print("Standard deviation of symmetric mean absolute percentage error on val set:", np.std(smape_list))
-print("mean squared prediction error", torch.mean((train_trj[:,5:505] - y_pred[:])**2))
+print("mean squared prediction error", torch.mean((train_trj[:,5:505] - y_pred[:, :500])**2))
 
-mean_error = mean_absolute_percentage_error(train_trj[-1,5:505].detach().numpy(), y_pred[-1].detach().numpy())
+mean_error = mean_absolute_percentage_error(train_trj[-1,5:505].detach().numpy(), y_pred[-1,:500].detach().numpy())
 
 
+### Error plot depending on time step
 
+error_t = np.abs(test_trj[:,5:].detach().numpy() - y_pred_test[:,:995].detach().numpy())#/y_pred_test.detach().numpy()
+print("minimum prediction",)
+error_t_mean = np.mean(error_t, axis=0).squeeze()
+
+error_t_std = np.std(error_t, axis=0).squeeze() 
+
+time = np.linspace(1e-7, 1e-4, 1000, 'o')
+
+fig,ax = plt.subplots(
+    figsize=(10,6)
+)
+#breakpoint()
+for i in range(0, 995, 100):
+    #time_label = f"t = {time[i]:.2e}"
+
+    ax.plot(z_width, error_t_mean[i], label=f"t = {time[i]:.2e}")
+    ax.legend() 
+
+plt.xlabel("Position z [nm]")
+plt.ylabel("Error")
+plt.title("Error in prediction")
+plt.savefig("fig_report/error_z.png", format="png")
+plt.close(fig)
+error_t_mean_c_z = np.mean(error_t_mean, axis=1)
+steps = np.linspace(5, 1000, 995)
+plt.plot(steps, error_t_mean_c_z, label="Mean error")
+plt.axvline(x=steps[62], color='red', linestyle='--', linewidth=2, label='Vertical Line at tstep 62')
+plt.axvline(x=steps[2*62], color='red', linestyle='--', linewidth=2, label='Vertical Line at x=250')
+plt.axvline(x=steps[8*62], color='red', linestyle='--', linewidth=2, label='Vertical Line at x=250')
+#plt.axvline(x=steps[300], color='blue', linestyle='--', linewidth=2, label='Vertical Line at x=250')
+#plt.axvline(x=steps[940], color='blue', linestyle='--', linewidth=2, label='Vertical Line at x=250')
+plt.xlabel("# of time steps")
+#plt.yscale('log')
+plt.ylabel("Error")
+
+plt.title("Mean error across x,z and configurations in prediction")
+plt.savefig("fig_report/error_t.png", format="png")
