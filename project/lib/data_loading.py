@@ -99,7 +99,7 @@ class DataLoading:
                 if grid is None or time is None:
                     print("Failed to load files.")
                     return
-                grid = self.padding(grid)
+                #grid = self.padding(grid)
                 mean_config += grid/c_bulk
                 if i % 10 == 0:
                     print("Progress: ", i/self.n_prod*100, "%")
@@ -145,8 +145,8 @@ class DataLoading:
                 if grid is None or time is None:
                     print("Failed to load files.")
                     return
-                grid = self.padding(grid)
-                grid_list.append(grid)
+                #grid = self.padding(grid)
+                grid_list.append(grid/c_bulk)
                 if i % 10 == 0:
                     print("Progress: ", i/self.n_prod*100, "%")
                 
