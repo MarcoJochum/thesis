@@ -74,3 +74,22 @@ class LossLogger(Callback):
     def on_validation_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
         self.val_loss.append(float(trainer.callback_metrics["val_loss"]))
 
+def get_encoded_decoded(vae, data_train, data_test):
+    with torch.no_grad():
+        data_train_vae = reshape_vae(data_train)
+        data_test_vae = reshape_vae(data_test)
+        data_train_encoded = vae(data_train_vae)[2]
+        data_train_encoded_std = vae(data_train_vae)[3]
+        data_test_encoded = vae(data_test_vae)[2]
+        data_test_encoded_std = vae(data_test_vae)[3]
+
+        data_train_decoded = vae.decoder(data_train_encoded)
+        data_test_decoded = vae.decoder(data_test_encoded)
+        data_train_decoded_std = vae.decoder(data_train_encoded_std)
+        data_test_decoded_std = vae.decoder(data_test_encoded_std)
+        data_train_decoded = unshape_vae(data_train_decoded, data_train.shape[0], data_train.shape[1], False)
+        data_test_decoded = unshape_vae(data_test_decoded, data_test.shape[0], data_test.shape[1], False)
+        data_train_decoded_std = unshape_vae(data_train_decoded_std, data_train.shape[0], data_train.shape[1], False)
+        data_test_decoded_std = unshape_vae(data_test_decoded_std, data_test.shape[0], data_test.shape[1], False)
+
+    return data_train_decoded, data_test_decoded , data_train_encoded, data_test_encoded#, data_train_decoded_std, data_test_decoded_std
