@@ -13,9 +13,11 @@ lib/__pycache__
 logs
 *.log
 ##Model folder
-models
-*.pth
 
+*.pth
+*.pt
+*.ckpt
+*.pkl
 #Plots
 *.png
 *.eps
