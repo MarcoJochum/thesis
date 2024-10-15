@@ -9,15 +9,28 @@ parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('--data_type', type=str, choices=['avg', 'std'], default='avg', help='Type of data to use (avg or std)')
 args = parser.parse_args()
 
-y_pred = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_study_5_opt_qr_"+ args.data_type+ "/y_pred_train.npy"), dtype=torch.float32)
-y_pred_std = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_study_5_opt_qr_"+ args.data_type+ "/y_pred_train_std.npy"), dtype= torch.float32)
-y_pred_test = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_study_5_opt_qr_"+ args.data_type+ "/y_pred_test.npy"), dtype=torch.float32) 
-y_pred_test_std = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_study_5_opt_qr_"+ args.data_type+ "/y_pred_test_std.npy"), dtype= torch.float32)
+
+
+
 
 if args.data_type == 'avg':
+    y_pred = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/study_5_no_sv_500_steps_"+ args.data_type+ "/y_pred_train.npy"), dtype=torch.float32)
+    y_pred_std = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/study_5_no_sv_500_steps_"+ args.data_type+ "/y_pred_train_std.npy"), dtype= torch.float32)
+    y_pred_test = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/study_5_no_sv_500_steps_"+ args.data_type+ "/y_pred_test.npy"), dtype=torch.float32) 
+    y_pred_test_std = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/study_5_no_sv_500_steps_"+ args.data_type+ "/y_pred_test_std.npy"), dtype= torch.float32)
+
     data_train = Tft_config.data_train_avg
     data_test = Tft_config.data_test_avg
+    train_params = Tft_config.train_params_avg
+    test_params = Tft_config.test_params_avg
 elif args.data_type == 'std':
+    y_pred = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/study_5_no_sv_300_steps_"+ args.data_type+ "/y_pred_train.npy"), dtype=torch.float32)
+    y_pred_std = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/study_5_no_sv_300_steps_"+ args.data_type+ "/y_pred_train_std.npy"), dtype= torch.float32)
+    y_pred_test = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/study_5_no_sv_300_steps_"+ args.data_type+ "/y_pred_test.npy"), dtype=torch.float32) 
+    y_pred_test_std = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/study_5_no_sv_300_steps_"+ args.data_type+ "/y_pred_test_std.npy"), dtype= torch.float32)
+    train_params = Tft_config.train_params_std
+    test_params = Tft_config.test_params_std
+
     data_train = Tft_config.data_train_std
     data_test = Tft_config.data_test_std
 else:
@@ -25,9 +38,8 @@ else:
     exit()
 data_test = data_test/ torch.mean(data_train) ## This has to preced the next line because the mean of the training data is used to normalize the test data
 data_train = data_train/ torch.mean(data_train)
-train_params = Tft_config.train_params##
+
 n_configs = y_pred.shape[0]
-test_params = Tft_config.test_params##
 train_trj = data_train
 test_trj = data_test
 
@@ -81,9 +93,9 @@ with torch.no_grad():
       
     fig,axs = plt.subplots(2,3, figsize=(10,6))
     k = 0
-    for j in [14,15,9]:
+    for j in [ 4, 9, 17]:#[14,15,9]:
         
-        for i in [10, 15, 20, 50, 100, 300, 800]:
+        for i in [10, 20, 50 , 100,  200,  300]:#[ 100, 300,400, 500,600, 800, 990]:
             
             time_label = f"t = {time[i]:.2e}"
             axs[0,k].plot(z_width, y_pred_test[j, i].numpy(), label = time_label)
@@ -122,15 +134,28 @@ for i in range(Tft_config.train_size, train_trj.shape[0]):
 mape_list = np.array(mape_list)
 smape_list = np.array(smape_list)
 print(mape_list)
+mape_list_test = []
+smape_list_test = []
+for i in range(0, test_trj.shape[0]):
+    mape = mean_absolute_percentage_error(train_trj[i,5:505].detach().numpy(), y_pred[i,:500].detach().numpy())
+    mape_list_test.append(mape)
+    smape = s_mape(train_trj[i,5:505].detach().numpy(), y_pred[i,:500].detach().numpy())
+    smape_list_test.append(smape)
 
-#mape_list[13] = 0
-
-print("Mean of all Mean absolute percentage errors on val set:", np.sum(mape_list)/(train_trj.shape[0]-Tft_config.train_size))
-print("Standard deviation of mean absolute percentage error on val set:", np.std(mape_list))
-print("Mean of all Symmetric mean absolute percentage errors on val set:", np.sum(smape_list)/(train_trj.shape[0]-Tft_config.train_size))
-print("Standard deviation of symmetric mean absolute percentage error on val set:", np.std(smape_list))
+mape_list_test = np.array(mape_list_test)
+smape_list_test = np.array(smape_list_test)
+print("Mean of all MAPE on val set:", np.sum(mape_list)/(train_trj.shape[0]-Tft_config.train_size))
+print("Standard deviation of MAPE on val set:", np.std(mape_list))
+print("Mean of all SMAPE on val set:", np.sum(smape_list)/(train_trj.shape[0]-Tft_config.train_size))
+print("Standard deviation of SMAPE on val set:", np.std(smape_list))
 print("mean squared prediction error", torch.mean((train_trj[:,5:505] - y_pred[:, :500])**2))
+print("######################################\n")
 
+print("Mean of all MAPE on test set:", np.sum(mape_list_test)/(test_trj.shape[0]))
+print("Standard deviation of MAPE on test set:", np.std(mape_list_test))
+print("Mean of all SMAPE on test set:", np.sum(smape_list_test)/(test_trj.shape[0]))
+print("Standard deviation of SMAPE on test set:", np.std(smape_list_test))
+print("mean squared prediction error_test", torch.mean((test_trj[:,5:505] - y_pred_test[:, :500])**2))
 mean_error = mean_absolute_percentage_error(train_trj[-1,5:505].detach().numpy(), y_pred[-1,:500].detach().numpy())
 
 
@@ -172,4 +197,4 @@ plt.xlabel("# of time steps")
 plt.ylabel("Error")
 
 plt.title("Mean error across x,z and configurations in prediction")
-plt.savefig("fig_report/error_t.png", format="png")
+plt.savefig("fig_report/error_Test_t.png", format="png")
