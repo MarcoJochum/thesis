@@ -8,10 +8,12 @@ class Tft_config():
     data_test_avg = torch.tensor(np.load("../../data_kmc/2d_sets/test_set_lin_80_20_avg.npy"), dtype=torch.float32)
     data_train_std = torch.tensor(np.load("../../data_kmc/2d_sets/train_set_lin_80_20_std.npy"), dtype=torch.float32)
     data_test_std = torch.tensor(np.load("../../data_kmc/2d_sets/test_set_lin_80_20_std.npy"), dtype=torch.float32)
-    train_params = get_config("../../data_kmc/2d_sets/train_set_lin_80_20_avg_list.txt")
-    test_params = get_config("../../data_kmc/2d_sets/test_set_lin_80_20_avg_list.txt")
-    n_steps = 300
-    inference_steps = 1000
+    train_params_avg = get_config("../../data_kmc/2d_sets/train_set_lin_80_20_avg_list.txt")
+    test_params_avg = get_config("../../data_kmc/2d_sets/test_set_lin_80_20_avg_list.txt")
+    train_params_std = get_config("../../data_kmc/2d_sets/train_set_lin_80_20_std_list.txt")
+    test_params_std = get_config("../../data_kmc/2d_sets/test_set_lin_80_20_std_list.txt")
+    n_steps = 500
+    inference_steps = 995
     n_samples_inference = 100
     model_name = "tft"
     
