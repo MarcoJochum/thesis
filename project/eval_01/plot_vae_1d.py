@@ -8,6 +8,8 @@ import argparse
 from config.tft import Tft_config
 from lib.helper import *    
 import matplotlib as mpl
+mpl.rcParams['font.family'] = 'DejaVu Serif'
+mpl.rcParams['font.serif'] = ['Palatino']
 
 mpl.rcParams["axes.prop_cycle"] =mpl.cycler('color', ['black', '#003DFD', '#b512b8', '#11a9ba', '#0d780f', '#f77f07', '#ba0f0f', '#0b0bf7', '#f70bf7', '#0bf7f7', '#0bf70b', '#f70b0b', '#f7f7f7', '#7f7f7f', '#0b0b0b'])
 #plt.style.use('thesis_style.mplstyle')
@@ -16,9 +18,6 @@ parser.add_argument('--data_type', type=str, choices=['avg', 'std'], default='av
 args = parser.parse_args()
 
 vae= torch.load("models/model_vae_"+ args.data_type +"_final.pt", map_location=torch.device("cpu"))
-y_pred = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_model_lb_5_2/y_pred_train.npy"), dtype=torch.float32)
-y_pred_test = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_model_lb_5_2/y_pred_test.npy"), dtype=torch.float32) 
-y_pred_test_std = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/tft_model_lb_5_2/y_pred_test_std.npy"), dtype= torch.float32)
 
 if args.data_type == 'avg':
     data_train = Tft_config.data_train_avg
@@ -28,7 +27,8 @@ elif args.data_type == 'std':
     data_train = Tft_config.data_train_std
     data_test = Tft_config.data_test_std
 
-n_configs = y_pred.shape[0]
+data_test = data_test/ torch.mean(data_train)
+data_train = data_train/ torch.mean(data_train)
 
 data_train_decoded, data_test_decoded, data_train_encoded, data_test_encoded = get_encoded_decoded(vae, data_train, data_test)
 
@@ -50,7 +50,8 @@ k=0
 column_labels = ["a", "b", "c"]
 
 config_labels = get_config("../../data_kmc/2d_sets/test_set_lin_80_20_"+args.data_type+"_list.txt")
-for j in [ 14, 9, 17]:
+configs = [ 14, 9, 17]
+for j in configs:
           
     for i in [10, 20, 50 , 100,  200,  300]:
     
@@ -78,7 +79,7 @@ for j in [ 14, 9, 17]:
                 axs[1,k].set_ylabel("Relative Concentration")
                 axs[1,k].set_xlabel("Position z [nm]")
                 axs[0,k].set_xlabel("Position z [nm]")
-    title = "{})  $\Lambda$=[{:.2},{:.e},{:.2}] ".format(column_labels[k],float(config_labels[j, 0]), float(config_labels[j, 1]), float(config_labels[j, 2]))
+    title = "{})  $\Lambda$=[{:.0f},{:.1e},{:.2}] ".format(column_labels[k],float(config_labels[j, 0]), float(config_labels[j, 1]), float(config_labels[j, 2]))
 
     fig.text(0.5, -0.3, title, ha='center', fontsize=12, transform=axs[1, k].transAxes)
     k+=1
@@ -86,7 +87,8 @@ for ax in axs.flat:
     ax.grid(True, which='both')
 #plt.tight_layout(pad=0.4, w_pad=0.5, h_pad=5.0)
 plt.subplots_adjust(wspace=0.2, hspace=0.5, bottom=0.2)
-plt.savefig("fig_report/test/vae_1d_test.png")
+
+plt.savefig("fig_report/1d_vae/vae_1d_"+ str(configs[0])+str(configs[1])+str(configs[2])+".pdf", format="pdf")
 
 
 
