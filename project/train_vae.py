@@ -21,7 +21,7 @@ set_seed(42)
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+log_dir = "runs/vae_std_data"
 ##Hyperparameters:
 part_class = VAE_config.part_class
 batch_size= VAE_config.batch_size
@@ -30,11 +30,11 @@ model_name = VAE_config.model_name
 parameters = dict(  
     latent_dim = [10],
     base = [4],
-    lr = [0.001]
+    lr = [ 0.0005]
 )
 ##Data
-data_train = VAE_config.data_train
-data_test = VAE_config.data_test
+data_train = VAE_config.data_train_std
+data_test = VAE_config.data_test_std
 mean = torch.mean(data_train)
 ##Scale data by mean
 data_train = data_train/mean
@@ -47,11 +47,6 @@ data_test = data_test[:,:VAE_config.n_steps]
 time = torch.linspace(1e-07,1e-04,1000)
 ##combine timesteps and config dim for training of the ae model
 data = torch.reshape(data_train,(data_train.shape[0]*data_train.shape[1],1,50,100))
-##Normalize data
-
-
-
-
 
 train_size = int(0.8 * len(data))
 val_size = len(data) - train_size
@@ -115,7 +110,7 @@ for run_id, (latent_dim, base, lr) in enumerate(product(*parameters.values())):
     {"latent_dim": latent_dim, "base": base, "lr": lr},{"Train loss": train_loss, "Train KLD": train_KLD,  "Val loss": val_loss.item()}
     )
 tb.close()
-torch.save(model, "models/model_vae_lin_lat_10.pth")
+torch.save(model, "models/model_vae_std_final.pt")
 
 
 
