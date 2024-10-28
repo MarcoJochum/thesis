@@ -44,7 +44,7 @@ t_end = 300
 t_space = 50
 num_plots=6
 
-fig,axs = plt.subplots(2,3, figsize=(10,8))
+fig,axs = plt.subplots(2,3, figsize=(16,8))
 z_width = np.linspace(0,100,100)
 k=0
 column_labels = ["a", "b", "c"]
@@ -57,19 +57,19 @@ for j in configs:
     
             
 
-            axs[0,k].plot(z_width, data_test_mean[j,i, :],label=f"t = {time[i]:.2e}")
+            axs[0,k].plot(z_width, data_test_mean[j,i, :],label=f"t = {time[i]:.2e}s")
             axs[0,k].fill_between(z_width, data_test_mean[j,i, :] - data_test_std[j,i,:], data_test_mean[j,i, :] + data_test_std[j,i,:], alpha=0.3)
             
 
             axs[0,k].set_ylim(0, 5.0) 
             axs[0,k].set_title("Ground truth")
             
-            axs[1,k].plot(z_width, data_test_decoded[j,i,:].numpy(), label=f"t = {time[i]:.2e}")
+            axs[1,k].plot(z_width, data_test_decoded[j,i,:].numpy(), label=f"t = {time[i]:.2e}s")
             axs[1,k].fill_between(z_width, data_test_decoded[j,i,:].numpy() - data_test_decoded_std[j,i,:].numpy(),
                                     data_test_decoded[j,i,:].numpy() + data_test_decoded_std[j,i,:].numpy(), alpha=0.3)
             
             axs[1,k].set_ylim(0, 5.0)
-            axs[1,k].set_title("Predicted")
+            axs[1,k].set_title("Decoded")
 
             if k == 0:  
                 
@@ -79,7 +79,7 @@ for j in configs:
                 axs[1,k].set_ylabel("Relative Concentration")
                 axs[1,k].set_xlabel("Position z [nm]")
                 axs[0,k].set_xlabel("Position z [nm]")
-    title = "{})  $\Lambda$=[{:.0f},{:.1e},{:.2}] ".format(column_labels[k],float(config_labels[j, 0]), float(config_labels[j, 1]), float(config_labels[j, 2]))
+    title = "{})  $\Lambda$=[{:.0f}, {:.1e} $\\text{{cm}}^{{-3}}$, {:.2} V] ".format(column_labels[k],float(config_labels[j, 0]), float(config_labels[j, 1]), float(config_labels[j, 2]))
 
     fig.text(0.5, -0.3, title, ha='center', fontsize=12, transform=axs[1, k].transAxes)
     k+=1
@@ -88,7 +88,7 @@ for ax in axs.flat:
 #plt.tight_layout(pad=0.4, w_pad=0.5, h_pad=5.0)
 plt.subplots_adjust(wspace=0.2, hspace=0.5, bottom=0.2)
 
-plt.savefig("fig_report/1d_vae/vae_1d_"+ str(configs[0])+str(configs[1])+str(configs[2])+".pdf", format="pdf")
+plt.savefig("fig_report/1d_vae/vae_1d_"+args.data_type + "_"  + str(configs[0])+str(configs[1])+str(configs[2])+".pdf", format="pdf", bbox_inches='tight')
 
 
 
