@@ -21,6 +21,7 @@ logs
 #Plots
 *.png
 *.eps
+*.npy
 
 #Tensorboard logs
 runs
