@@ -31,25 +31,32 @@ def mean_absolute_percentage_error(y_true, y_pred):
 
 VAE= torch.load("models/model_vae_"+ args.data_type +"_final.pt", map_location=torch.device("cpu"))
 
-tft_model = TFTModel.load("models/study_5/tft_study_5_opt_qr_"+ args.data_type+".pt", map_location="cpu")##
-tft_model.to_cpu()
-best_model = tft_model.load_from_checkpoint(model_name="lat_10_opt", best=True)
+
+
 
 if args.data_type == 'avg':
+    tft_model = TFTModel.load("models/no_sv/study_5_no_sv_500_steps_"+ args.data_type +".pt", map_location="cpu")##
+    tft_model.to_cpu()
     data_train = Tft_config.data_train_avg
     data_test = Tft_config.data_test_avg
+    train_params = Tft_config.train_params_avg##
+    test_params = Tft_config.test_params_avg##
 elif args.data_type == 'std':
+    tft_model = TFTModel.load("models/no_sv/study_5_no_sv_300_steps_"+ args.data_type +".pt", map_location="cpu")##
+    tft_model.to_cpu()
     data_train = Tft_config.data_train_std
     data_test = Tft_config.data_test_std
+    train_params = Tft_config.train_params_std##
+    test_params = Tft_config.test_params_std##
 else:
     print("Data type not recognized")
     exit()
 
+print("Reminder: Change scaling of c_bulk depending on model used!!!")
 
 data_test = data_test/ torch.mean(data_train) ## This has to preced the next line because the mean of the training data is used to normalize the test data
 data_train = data_train/ torch.mean(data_train)
-train_params = Tft_config.train_params##
-test_params = Tft_config.test_params##
+
 
 ##Number of configurations to perform inference on
 n_configs = data_test.shape[0]   ## all configs
@@ -69,16 +76,16 @@ model_input = data_test_vae[:, :5]
 train_series_list = []    
 for i in range(data_train.shape[0]):
    
-    stat_cov = pd.DataFrame(data ={"epsr": [float(train_params[i,0])], "conc": [float(train_params[i,1])], "V_bias": [float(train_params[i,2])]})##
-    series = TimeSeries.from_values(data_train_vae[i,:5].numpy(), static_covariates=stat_cov)##
+    stat_cov = pd.DataFrame(data ={"epsr": [float(train_params[i,0])], "conc": [float(np.log10(train_params[i,1]))], "V_bias": [float(train_params[i,2])]})##
+    series = TimeSeries.from_values(data_train_vae[i,:5].numpy())#, static_covariates=stat_cov)##
     
     train_series_list.append(series)##
 
 test_series_list = []
 for i in range(data_test.shape[0]):
     
-    stat_cov = pd.DataFrame(data ={"epsr": [float(test_params[i,0])], "conc": [float(test_params[i,1])], "V_bias": [float(test_params[i,2])]})##
-    series = TimeSeries.from_values(model_input[i].numpy(), static_covariates=stat_cov)##
+    stat_cov = pd.DataFrame(data ={"epsr": [float(test_params[i,0])], "conc": [float(np.log10(test_params[i,1]))], "V_bias": [float(test_params[i,2])]})##
+    series = TimeSeries.from_values(model_input[i].numpy())#, static_covariates=stat_cov)##
     
     test_series_list.append(series)##
 
@@ -95,6 +102,7 @@ pred_train_series_list = []
 ## Measure time needed for inference
 start_time = time.time()
 for j in range(0,data_train.shape[0]):
+    
     pred_train = tft_model.predict(series=train_series_list[j], n = Tft_config.inference_steps, num_samples=Tft_config.n_samples_inference)##
     
     pred_train_series_list.append(pred_train)
@@ -128,8 +136,8 @@ y_pred_test = unshape_vae(y_pred_test, data_test.shape[0], Tft_config.inference_
 y_pred_test_std = unshape_vae(y_pred_test_std, data_test.shape[0], Tft_config.inference_steps, False)
 
 ##save predictions
-np.save("../../data_kmc/2d_results/lin_time/tft_study_5_opt_qr_"+ args.data_type+ "/y_pred_test.npy", y_pred_test.detach().numpy())
-np.save("../../data_kmc/2d_results/lin_time/tft_study_5_opt_qr_"+ args.data_type+ "/y_pred_test_std.npy", y_pred_test_std.detach().numpy())
-np.save("../../data_kmc/2d_results/lin_time/tft_study_5_opt_qr_"+ args.data_type+ "/y_pred_train.npy", y_pred.detach().numpy())
-np.save("../../data_kmc/2d_results/lin_time/tft_study_5_opt_qr_"+ args.data_type+ "/y_pred_train_std.npy", y_pred_std.detach().numpy())
+np.save("../../data_kmc/2d_results/lin_time/study_5_no_sv_500_steps_"+ args.data_type+ "/y_pred_test.npy", y_pred_test.detach().numpy())
+np.save("../../data_kmc/2d_results/lin_time/study_5_no_sv_500_steps_"+ args.data_type+ "/y_pred_test_std.npy", y_pred_test_std.detach().numpy())
+np.save("../../data_kmc/2d_results/lin_time/study_5_no_sv_500_steps_"+ args.data_type+ "/y_pred_train.npy", y_pred.detach().numpy())
+np.save("../../data_kmc/2d_results/lin_time/study_5_no_sv_500_steps_"+ args.data_type+ "/y_pred_train_std.npy", y_pred_std.detach().numpy())
 print("Inference time:", end_time-start_time)
