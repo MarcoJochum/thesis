@@ -128,13 +128,15 @@ legend_handles = [
     mpatches.Patch(color=colors[1], label=r'$\varepsilon_R=677$'),
     mpatches.Patch(color=colors[2], label=r'$\varepsilon_r=100$ ')
 ]
-fig.text(0.5, -0.25, f"a) {names[2]}", ha='center', fontsize=14, transform=axs[0,1].transAxes)
-fig.text(0.5, -0.25, f"b) {names[0]}", ha='center', fontsize=14, transform=axs[1,0].transAxes)
-fig.text(0.5, -0.25, f"c) {names[1]}", ha='center', fontsize=14,transform=axs[1,1].transAxes)
-fig.text(0.5, -0.25, f"d) Static covariates", ha='center', fontsize=14,transform=axs[0,0].transAxes)
+fig.text(0.5, -0.25, f"b) {names[2]}", ha='center', fontsize=14, transform=axs[0,1].transAxes)
+fig.text(0.5, -0.25, f"c) {names[0]}", ha='center', fontsize=14, transform=axs[1,0].transAxes)
+fig.text(0.5, -0.25, f"d) {names[1]}", ha='center', fontsize=14,transform=axs[1,1].transAxes)
+fig.text(0.5, -0.25, f"a) Static covariates", ha='center', fontsize=14,transform=axs[0,0].transAxes)
 axs[0,1].legend(handles=legend_handles, loc="upper center", fontsize=13)   
+axs[1,0].legend(handles=legend_handles, loc="upper center", fontsize=13)
+axs[1,1].legend(handles=legend_handles, loc="upper center", fontsize=13)
 plt.subplots_adjust(wspace=0.2, hspace=0.5, bottom=0.2)
-plt.savefig("fig_report/test/sv_histograms.pdf", format="pdf")
+plt.savefig("fig_report/test/sv_histograms.pdf", format="pdf", bbox_inches='tight')
 plt.show()
 
 
