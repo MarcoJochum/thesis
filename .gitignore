@@ -27,3 +27,4 @@ runs
 lib/__pycache__/
 
 fig_report/
+eval_01/data/
