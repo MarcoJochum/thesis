@@ -24,4 +24,6 @@ logs
 
 #Tensorboard logs
 runs
-thesis/project/lib/__pycache__
+lib/__pycache__/
+
+fig_report/
