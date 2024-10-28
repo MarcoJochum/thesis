@@ -62,17 +62,17 @@ for j in config_list:
     
             
 
-            axs[0,k].plot(z_width, data_test_mean[j,i],label=f"t = {time[i]:.2e}s")
+            axs[0,k].plot(z_width, data_test_mean[j,i+5],label=f"t = {time[i+5]:.2e}s")
             
             
 
-            axs[0,k].set_ylim(0, 5.0) 
+            axs[0,k].set_ylim(0, 20) 
             axs[0,k].set_title("Ground truth")
             
-            axs[1,k].plot(z_width, y_pred_test_mean[j,i].numpy(), label=f"t = {time[i]:.2e}s")
+            axs[1,k].plot(z_width, y_pred_test_mean[j,i].numpy(), label=f"t = {time[i+5]:.2e}s")
            
             
-            axs[1,k].set_ylim(0, 5.0)
+            axs[1,k].set_ylim(0, 20)
             axs[1,k].set_title("Predicted")
 
             if k == 0:  
@@ -83,7 +83,7 @@ for j in config_list:
                 axs[1,k].set_ylabel("Relative Concentration")
                 axs[1,k].set_xlabel("Position z [nm]")
                 axs[0,k].set_xlabel("Position z [nm]")
-    title = "{})  $\Lambda$=[{:.2},{:.1e},{:.2}] ".format(column_labels[k],float(config_labels[j, 0]), float(config_labels[j, 1]), float(config_labels[j, 2]))
+    title = "{})  $\Lambda^{}$=[{:.0f}, {:.1e} $\\text{{cm}}^{{-3}}$, {:.2} V] ".format(column_labels[k],column_labels[k],float(config_labels[j, 0]), float(config_labels[j, 1]), float(config_labels[j, 2]))
 
     fig.text(0.5, -0.3, title, ha='center', fontsize=12, transform=axs[1, k].transAxes)
     k+=1
@@ -91,6 +91,9 @@ for ax in axs.flat:
     ax.grid(True, which='both')
 #plt.tight_layout(pad=0.4, w_pad=0.5, h_pad=5.0)
 plt.subplots_adjust(wspace=0.2, hspace=0.5, bottom=0.2)
-plt.savefig("fig_report/tft_1d_"+args.data_type+"_conf_"+str(config_list[0])+"_"+str(config_list[1])+"_"+str(config_list[2])+".pdf", format="pdf")
+plt.savefig("fig_report/tft_1d_"+args.data_type+"_conf_"+str(config_list[0])+"_"+str(config_list[1])+"_"+str(config_list[2])+"_presentation.pdf", 
+            format="pdf", bbox_inches='tight')
 
 print(sum(p.numel() for p in vae.parameters() if p.requires_grad))
+
+

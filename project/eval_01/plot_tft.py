@@ -91,7 +91,7 @@ time = np.linspace(1e-7, 1e-4, 1000, 'o')
 z_width = np.linspace(0,100,100)
 with torch.no_grad():
       
-    fig,axs = plt.subplots(2,3, figsize=(10,6))
+    fig,axs = plt.subplots(2,3, figsize=(10,5))
     k = 0
     for j in [ 4, 9, 17]:#[14,15,9]:
         
