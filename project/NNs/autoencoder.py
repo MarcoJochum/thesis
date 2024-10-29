@@ -33,7 +33,7 @@ class CAE(nn.Module):
     
 
 class VAE(CAE):
-    def __init__(self, encoder, decoder, latent_dim=20, mode='train'):
+    def __init__(self, encoder, decoder, latent_dim=20):
         super().__init__(encoder_class= encoder, decoder_class=decoder, latent_dim=latent_dim)
 
         ''' 
@@ -66,9 +66,7 @@ class VAE(CAE):
         logvar = self.logvar(encoded)
 
         z = self.reparametrize(mu, logvar)
-        ##Do this before decoding
-        #if not self.mode == 'train':
-        #    z[:,:3] = params
+        
         decoded = self.decoder(z)
         
         return  decoded, z, mu, logvar
