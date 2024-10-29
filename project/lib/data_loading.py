@@ -282,7 +282,7 @@ def saving_encodings(model, data, config_list):
 
     '''
     Save the encoded data for the different configurations in the data folder.
-    This is the training data for the LSTM model.
+    This is the training data for the propagator model.
 
     Parameters:
 
@@ -310,7 +310,7 @@ def saving_encodings(model, data, config_list):
 def loading_encodings(folder_name, config_list):
     '''
     Load the encoded data for the different configurations in the data folder.
-    This is the training data for the LSTM model.
+    This is the training data for the propagator model.
 
     Parameters:
 
