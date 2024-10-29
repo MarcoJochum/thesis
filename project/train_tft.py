@@ -17,14 +17,15 @@ warnings.filterwarnings("ignore")
 
 
 n_steps = 300
-config_opt_tft_study_4 = Tft_config()
-
 parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('--data_type', type=str, choices=['avg', 'std'], default='avg', help='Type of data to use (avg or std)')
 args = parser.parse_args()
 
+
+##Load the VAE model
 VAE= torch.load("models/model_vae_"+ args.data_type +"_final.pt", map_location=torch.device("cpu"))
 
+## Switch between mean (avg) and standar deviation (std) field data
 if args.data_type == 'avg':
     data_train = Tft_config.data_train_avg
     train_params = Tft_config.train_params_avg
@@ -46,14 +47,19 @@ with torch.no_grad():
 
 series_list = []    
 for i in range(data_train.shape[0]):
+    ## Create static covariates for each time series
     stat_cov = pd.DataFrame(data ={"epsr": [float(train_params[i,0])], "conc": [np.log10(float(train_params[i,1]))], "V_bias": [float(train_params[i,2])]})
+    ## Create time series object witht the kMC data and the corresponding static covariates
     series = TimeSeries.from_values(data_train[i].numpy(), static_covariates=stat_cov)#all training data convertd to time series type
+    ## Create a list (sequence) of time series objects which can be fed into Darts models
     series_list.append(series)
 
 loss_logger = LossLogger()
 
 train_series = series_list[:Tft_config.train_size]
 val_series = series_list[Tft_config.train_size:]
+
+
 my_model = TFTModel(
     input_chunk_length=Tft_config.seq_length,
     output_chunk_length=Tft_config.pred_length,
