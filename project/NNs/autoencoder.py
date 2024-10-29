@@ -48,7 +48,7 @@ class VAE(CAE):
             latent_dim (int): The dimensionality of the latent space.
 
         '''
-        self.mode = mode
+        
         self.mu = nn.Linear(self.latent_dim, self.latent_dim) #transform the encoded data into the mean of the latent space
         self.logvar = nn.Linear(self.latent_dim, self.latent_dim)  #transform the encoded data into the log variance of the latent space
 
@@ -58,7 +58,7 @@ class VAE(CAE):
 
         return mu + eps*std
     
-    def forward(self,x, params=None):
+    def forward(self,x):
 
         encoded = self.encoder(x)
         mu = self.mu(encoded)
