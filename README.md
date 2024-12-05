@@ -1,5 +1,11 @@
 # kMC surrogate documentation
+## Introduction
 
+This is the work of my master's thesis on improving the efficiency of an existing C++ kMC code for modeling Solid State Electrolytes. The data was generated using the openkmc code, which is being developed at the TUM group for Simulation of Nanosystems for Energy Conversion. This code will be published by the chair at a later point. However, its results have been discussed in several papers:
+- [Modeling of Space-Charge Layers in Solid-State Electrolytes: A Kinetic Monte Carlo Approach and Its Validation](https://pubs.acs.org/doi/10.1021/acs.jpcc.2c02481)
+- [Local Temporal Acceleration Scheme to Couple Transport and Reaction Dynamics in Kinetic Monte Carlo Models of Electrochemical Systems](https://pubs.acs.org/doi/10.1021/acs.jctc.1c01010)
+
+In the following a detailed explanation of the surrogate model workflow will be given.
 
 ## Rough workflow
 1. Start openkmc simulation to obtain data to train ML model
