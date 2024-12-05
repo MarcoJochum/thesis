@@ -24,14 +24,16 @@ y_pred_test_std = torch.tensor(np.load("../../data_kmc/2d_results/lin_time/study
 if args.data_type == 'avg':
     data_train = Tft_config.data_train_avg
     data_test = Tft_config.data_test_avg
+    train_params = Tft_config.train_params_avg  
+    test_params = Tft_config.test_params_avg
 
 elif args.data_type == 'std':
     data_train = Tft_config.data_train_std
     data_test = Tft_config.data_test_std
+    train_params = Tft_config.train_params_std
+    test_params = Tft_config.test_params_std
 
-train_params = Tft_config.train_params##
 n_configs = y_pred.shape[0]
-test_params = Tft_config.test_params##
 train_trj = data_train[:n_configs]
 test_trj = data_test[:n_configs]
 
@@ -55,7 +57,7 @@ fig, axs = plt.subplots(3, 2, figsize=(12, 14))
 time = np.linspace(1e-7, 1e-4, 1000)
 
 k=0
-title = r"Parameters: $\epsilon_r=$ {:.2},  $c_{{bulk}}=$ {:.2e} , $\phi_{{bias}}=$ {:.2} ".format(float(config_labels[9, 0]), float(config_labels[9, 1]), float(config_labels[9, 2]))
+title = r"Parameters: $\epsilon_r=$ {:.0f},  $c_{{bulk}}=$ {:.1e} $\text{{cm}}^{{-3}}$, $\phi_{{bias}}=$ {:.2} V ".format(float(config_labels[9, 0]), float(config_labels[9, 1]), float(config_labels[9, 2]))
 
 fig.suptitle(title, fontsize=16)
 for t in [5,50,499]:
@@ -95,7 +97,7 @@ fig.text(0.5, 0.34, "c) Time step 499", ha='center', fontsize=12)
 fig.text(0.5, 0.63, "b) Time step 50", ha='center', fontsize=12)
 fig.text(0.5, 0.92, "a) Time step 10", ha='center', fontsize=12)
 
-plt.savefig("fig_report/test/vae_2d_test"+args.data_type+".png", format="png",dpi=700)
+plt.savefig("fig_report/2d_vae/vae_2d_"+args.data_type+".pdf", format="pdf", bbox_inches='tight')
 #tpl.save("fig_report/test/vae_2d_test"+args.data_type+".tex")
 plt.close(fig)
 

@@ -66,33 +66,33 @@ config_labels = get_config("../../data_kmc/2d_sets/test_set_lin_80_20_"+args.dat
 ##2D plots
 z_width = np.linspace(0, 100, 100)
 x_width = np.linspace(0, 50, 50)
-fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+fig, axs = plt.subplots(3, 2, figsize=(12, 14))
 time = np.linspace(1e-7, 1e-4, 1000)
 
 k=0
 title = r"Parameters: $\epsilon_r=$ {:.0f},  $c_{{bulk}}=$ {:.1e} $\text{{cm}}^{{-3}}$, $\phi_{{bias}}=$ {:.2} V ".format(float(config_labels[9, 0]), float(config_labels[9, 1]), float(config_labels[9, 2]))
 
 fig.suptitle(title, fontsize=16)
-for t in [100]:
+for t in [10, 50 , 499]:
     # Plot y_pred_test
-    im1 = axs[0].imshow(y_pred_test[9,t].squeeze().numpy(), aspect='auto', 
+    im1 = axs[k,0].imshow(y_pred_test[9,t].squeeze().numpy(), aspect='auto', 
                           extent=[z_width.min(), z_width.max(), x_width.min(), x_width.max()], 
-                          vmin=0.4,vmax=2.5,origin='lower')
-    axs[0].set_title(f"Prediction", fontsize=12)
-    axs[0].set_xlabel("Position z [nm]")
-    axs[0].set_ylabel("Position x [nm]")
+                          vmin=0.4,vmax=10,origin='lower')
+    axs[k,0].set_title(f"Prediction", fontsize=12)
+    axs[k,0].set_xlabel("Position z [nm]")
+    axs[k,0].set_ylabel("Position x [nm]")
     
     # if k == 2:
     #     cbar = fig.colorbar(im1, fraction=0.08, pad=2)
     #     cbar.set_label("Relative concentration")
 
 
-    im2=axs[1].imshow(data_test[9,t+5].squeeze().numpy(), aspect='auto', 
+    im2=axs[k,1].imshow(data_test[9,t+5].squeeze().numpy(), aspect='auto', 
                         extent=[z_width.min(), z_width.max(), x_width.min(), x_width.max()], 
-                        vmin=0.4, vmax=2.5,origin='lower')
-    axs[1].set_title(f"Ground Truth ", fontsize=12)
-    axs[1].set_xlabel("Position z [nm]")
-    axs[1].set_ylabel("Position x [nm]")
+                        vmin=0.4, vmax=10,origin='lower')
+    axs[k,1].set_title(f"Ground Truth ", fontsize=12)
+    axs[k,1].set_xlabel("Position z [nm]")
+    axs[k,1].set_ylabel("Position x [nm]")
     # if k == 2:
     #     cbar = fig.colorbar(im2,ax=axs[:,1], fraction=0.08, pad=0.04)
     #     cbar.set_label("Relative concentration")
@@ -103,14 +103,16 @@ cbar_ax = fig.add_axes([0.92, 0.25, 0.03, 0.5])  # [left, bottom, width, height]
 cbar = fig.colorbar(im2, cax=cbar_ax)
 cbar.set_label("Relative concentration")
 
-
+fig.text(0.5, 0.34, r"c) Time step 499".format(time[499]), ha='center', fontsize=12)
+fig.text(0.5, 0.63, r"b) Time step 50".format(time[50]), ha='center', fontsize=12)
+fig.text(0.5, 0.92, r"a) Time step 10".format(time[10]), ha='center', fontsize=12)
 #plt.tight_layout(rect=[0, 0, 1.2, 0.96]) 
 plt.subplots_adjust(wspace=0.2, hspace=0.4)
 # fig.text(0.5, 0.34, "c) Time step 499", ha='center', fontsize=12)
 # fig.text(0.5, 0.63, "b) Time step 50", ha='center', fontsize=12)
 # fig.text(0.5, 0.92, "a) Time step 10", ha='center', fontsize=12)
 
-plt.savefig("fig_report/tft_2d_"+args.data_type+"_presentation.pdf", format="pdf", bbox_inches='tight')
+plt.savefig("fig_report/tft_2d_"+args.data_type+"_thesis.pdf", format="pdf", bbox_inches='tight')
 
 plt.close(fig)
 
